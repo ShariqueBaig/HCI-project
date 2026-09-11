@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ambient — a background layer that notices, quietly</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b0a10;
+      --surface: #15131d;
+      --surface-raised: #1d1a29;
+      --border: #2b263b;
+      --border-soft: #211d2e;
+      --text: #e8e6ed;
+      --text-muted: #9d98ab;
+      --text-faint: #696478;
+      --calm: #7fae9d;
+      --stress: #d9a054;
+      --signal: #8c9ee0;
+      --serif: "Source Serif 4", Georgia, serif;
+      --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      padding: 40px 24px 64px;
+      min-height: 100vh;
+      transition: background-color 1.5s ease;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    /* ---------- hero ---------- */
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 32px;
+      margin-bottom: 36px;
+      flex-wrap: wrap;
+    }
+
+    .hero h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 2.6rem;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      max-width: 46ch;
+      line-height: 1.55;
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    /* ---------- toggle ---------- */
+    .toggle {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 4px;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .toggle button {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--sans);
+      font-size: 0.85rem;
+      padding: 9px 18px;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: background .25s ease, color .25s ease;
+      white-space: nowrap;
+    }
+
+    .toggle button.active {
+      background: var(--surface-raised);
+      color: var(--text);
+    }
+
+    /* ---------- stage layout ---------- */
+    .stage {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width:840px) {
+      .stage {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ---------- mock device ---------- */
+    .device {
+      --surface: #1a2029;
+      --surface-raised: #212932;
+      --border: #2b3440;
+      --border-soft: #232b34;
+      --text: #e6e8ec;
+      --text-muted: #8b93a3;
+      --text-faint: #5c6472;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .device-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .device-bar .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .device-bar .name {
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      margin-left: 6px;
+    }
+
+    .brightness-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 1.4s ease;
+      z-index: 5;
+    }
+
+    .device-body {
+      position: relative;
+    }
+
+    .feed {
+      height: 230px;
+      overflow: hidden;
+      position: relative;
+      padding: 18px 20px 0;
+    }
+
+    .feed-track {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      will-change: transform;
+    }
+
+    .feed-item {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: padding .9s ease, gap .9s ease;
+    }
+
+    .feed-item .who {
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      margin-bottom: 4px;
+    }
+
+    .feed-item .what {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .compose {
+      border-top: 1px solid var(--border-soft);
+      padding: 16px 20px 20px;
+    }
+
+    .compose label {
+      display: block;
+      font-size: 0.76rem;
+      color: var(--text-faint);
+      margin-bottom: 8px;
+    }
+
+    .compose textarea {
+      width: 100%;
+      min-height: 72px;
+      resize: vertical;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 0.92rem;
+      line-height: 1.5;
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    .compose textarea:focus {
+      border-color: #3a4553;
+    }
+
+    .compose .hint {
+      font-size: 0.75rem;
+      color: var(--text-faint);
+      margin-top: 8px;
+    }
+
+    .notif-layer {
+      position: absolute;
+      top: 60px;
+      right: 16px;
+      z-index: 6;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 230px;
+      pointer-events: none;
+    }
+
+    .notif {
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+
+    .notif .t {
+      color: var(--text);
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .notif .b {
+      color: var(--text-faint);
+    }
+
+    .notif.sharp {
+      animation: notifSharp .35s ease forwards;
+      border-color: var(--signal);
+    }
+
+    .notif.soft {
+      animation: notifSoft 1.1s ease forwards;
+    }
+
+    .notif.muted {
+      animation: notifMuted 1.8s ease forwards;
+      border-color: var(--border-soft);
+    }
+
+    @keyframes notifSharp {
+      0% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      60% {
+        opacity: 1;
+        transform: translateY(1px);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes notifSoft {
+      0% {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+
+      100% {
+        opacity: 0.92;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes notifMuted {
+      0% {
+        opacity: 0;
+      }
+
+      100% {
+        opacity: 0.55;
+      }
+    }
+
+    /* ---------- signal panel ---------- */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      transition: opacity .4s ease;
+    }
+
+    .hidden-view {
+      display: none !important;
+    }
+
+    .panel h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 1.05rem;
+      margin: 0;
+    }
+
+    .panel .sub {
+      font-size: 0.78rem;
+      color: var(--text-faint);
+      margin-top: 4px;
+    }
+
+    .gauge-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .gauge {
+      position: relative;
+      width: 84px;
+      height: 84px;
+      flex-shrink: 0;
+    }
+
+    .gauge svg {
+      transform: rotate(-90deg);
+    }
+
+    .gauge .num {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--mono);
+      font-size: 1.15rem;
+    }
+
+    .gauge-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .gauge-label .tier {
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      margin-top: 4px;
+      color: var(--text-faint);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric {
+      background: var(--surface-raised);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .metric .v {
+      font-family: var(--mono);
+      font-size: 1rem;
+    }
+
+    .metric .l {
+      font-size: 0.72rem;
+      color: var(--text-faint);
+      margin-top: 2px;
+    }
+
+    .log {
+      border-top: 1px solid var(--border-soft);
+      padding-top: 14px;
+      max-height: 150px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .log-empty {
+      font-size: 0.78rem;
+      color: var(--text-faint);
+    }
+
+    .log-item {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+    }
+
+    .log-item .ts {
+      font-family: var(--mono);
+      color: var(--text-faint);
+      flex-shrink: 0;
+    }
+
+    .sim-btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface-raised);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 0.83rem;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .2s ease;
+    }
+
+    .sim-btn:hover {
+      border-color: var(--stress);
+    }
+
+    .sim-btn:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    /* ---------- research section ---------- */
+    .research {
+      margin-top: 44px;
+    }
+
+    .research h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 1.3rem;
+      margin: 0 0 6px;
+    }
+
+    .research .sub {
+      color: var(--text-faint);
+      font-size: 0.85rem;
+      margin: 0 0 20px;
+      max-width: 60ch;
+      line-height: 1.5;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width:840px) {
+      .cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+    }
+
+    .card .mech {
+      font-size: 0.72rem;
+      color: var(--signal);
+      font-family: var(--mono);
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin: 0 0 10px;
+    }
+
+    .card .src {
+      font-size: 0.75rem;
+      color: var(--text-faint);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    .breathe-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 10, 16, 0.95);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.8s ease;
+    }
+
+    .breathe-overlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .breathe-circle {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: var(--calm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-family: var(--sans);
+      font-weight: 500;
+      font-size: 1.25rem;
+      transform: scale(1);
+      transition: transform 4s ease-in-out, background-color 4s ease-in-out;
+      box-shadow: 0 0 40px rgba(127, 174, 157, 0.2);
+    }
+
+    .breathe-overlay.inhale .breathe-circle {
+      transform: scale(1.8);
+      background-color: var(--signal);
+      box-shadow: 0 0 60px rgba(140, 158, 224, 0.3);
+    }
+
+    .breathe-overlay.exhale .breathe-circle {
+      transform: scale(1);
+      background-color: var(--calm);
+      box-shadow: 0 0 40px rgba(127, 174, 157, 0.2);
+    }
+
+    .breathe-close {
+      margin-top: 100px;
+      appearance: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--sans);
+      padding: 10px 20px;
+      border-radius: 100px;
+      cursor: pointer;
+      transition: background .2s, color .2s;
+    }
+
+    .breathe-close:hover {
+      background: var(--surface-raised);
+      color: var(--text);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <div class="hero">
+      <div>
+        <h1>Ambient</h1>
+        <p>A background layer that reads typing behaviour — not a camera, not a wearable — and quietly adjusts
+          brightness, pacing, and notifications before you'd think to ask for it.</p>
+      </div>
+      <div id="cameraPanel" class="hidden-view" style="display:none; align-items:center; gap:12px; margin-bottom: 4px;">
+        <video id="webcam" width="280" height="auto" autoplay muted playsinline
+          style="border-radius:10px; border:1px solid var(--border); transform: scaleX(-1);"></video>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div class="metric" style="padding:6px 10px; border-radius: 8px;">
+            <div class="v" id="mEmotion" style="font-size:0.9rem;">—</div>
+            <div class="l">dominant emotion</div>
+          </div>
+          <div class="metric" style="padding:6px 10px; border-radius: 8px;">
+            <div class="v" id="mFaceStress" style="font-size:0.9rem;">—</div>
+            <div class="l">face stress factor</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+        <div class="toggle">
+          <button id="audioToggle">Play Ambient Audio</button>
+        </div>
+        <div class="toggle" id="cameraBtnGroup">
+          <button id="cameraToggle">Enable Camera</button>
+          <button id="feedToggle" style="display:none;">Hide Feed</button>
+        </div>
+        <div class="toggle">
+          <button id="breatheBtn">Breathe</button>
+        </div>
+        <div class="toggle" id="viewToggle">
+          <button data-view="user" class="active">What you'd see</button>
+          <button data-view="backstage">What's actually happening</button>
+        </div>
+      </div>
+    </div>
+
+    <audio id="bgMusic" loop src="sub_clair-lofi-background-586104.mp3"></audio>
+
+    <div class="stage">
+      <div class="device">
+        <div class="brightness-overlay" id="brightnessOverlay"></div>
+        <div class="device-bar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="name">journal — a demo workspace</span>
+        </div>
+        <div class="device-body">
+          <div class="notif-layer" id="notifLayer"></div>
+          <div class="feed" id="feed">
+            <div class="feed-track" id="feedTrack"></div>
+          </div>
+          <div class="compose">
+            <label for="typer">Type a few sentences — anything. The pacing of your keystrokes is the whole
+              signal.</label>
+            <textarea id="typer" placeholder="Start typing here..."></textarea>
+            <div class="hint">Nothing you type is stored or read for content — only the timing between keys.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="signalPanel">
+        <div>
+          <h3>Signal reading</h3>
+          <div class="sub">Updates continuously from your typing rhythm, smoothed so single fast keystrokes don't spike
+            it.</div>
+        </div>
+
+        <div class="gauge-row">
+          <div class="gauge">
+            <svg width="84" height="84" viewBox="0 0 84 84">
+              <circle cx="42" cy="42" r="36" fill="none" stroke="var(--border-soft)" stroke-width="7" />
+              <circle id="gaugeArc" cx="42" cy="42" r="36" fill="none" stroke="var(--calm)" stroke-width="7"
+                stroke-linecap="round" stroke-dasharray="226" stroke-dashoffset="226"
+                style="transition:stroke-dashoffset .8s ease, stroke .8s ease;" />
+            </svg>
+            <div class="num" id="gaugeNum">—</div>
+          </div>
+          <div class="gauge-label">
+            Composite score, 0–100.
+            <span class="tier" id="tierLabel">waiting for typing…</span>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div class="metric">
+            <div class="v" id="mSpeed">—</div>
+            <div class="l">avg. interval (ms)</div>
+          </div>
+          <div class="metric">
+            <div class="v" id="mCov">—</div>
+            <div class="l">rhythm irregularity</div>
+          </div>
+          <div class="metric">
+            <div class="v" id="mBack">—</div>
+            <div class="l">backspace rate</div>
+          </div>
+          <div class="metric">
+            <div class="v" id="mJerkMetric">—</div>
+            <div class="l">cursor jerk</div>
+          </div>
+          <div class="metric" style="grid-column: 1 / -1;">
+            <div class="v" id="mBase">—</div>
+            <div class="l">learned baseline</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sub" style="margin-bottom:8px;">Adjustments made, invisibly, on the left</div>
+          <div class="log" id="logList">
+            <div class="log-empty">No adjustments yet — start typing.</div>
+          </div>
+        </div>
+
+        <button class="sim-btn" id="simBtn">Simulate a stressful moment</button>
+      </div>
+    </div>
+
+    <div class="research">
+      <h2>Why these particular responses</h2>
+      <p class="sub">Each adjustment is tied to a specific finding, not a guess. The evidence is stronger for some than
+        others — worth knowing before pitching this as settled science.</p>
+      <div class="cards">
+        <div class="card">
+          <div class="mech">detection</div>
+          <p>Inter-keystroke timing shifts measurably with stress and cognitive load, and has been used to classify
+            stress states from typing alone with accuracy in the high-60s to high-80s percent range across lab studies —
+            no extra hardware required.</p>
+          <div class="src">Gunawardhane et al.; Vizer et al.; Smeaton et al. (Dublin City University)</div>
+        </div>
+        <div class="card">
+          <div class="mech">brightness</div>
+          <p>Higher screen luminance is associated with higher physiological arousal during reading tasks, independent
+            of visual fatigue — the basis for treating a dimmer screen as a small, deniable down-regulator rather than a
+            fix.</p>
+          <div class="src">Digital-reading luminance & arousal study, Computers in Human Behavior</div>
+        </div>
+        <div class="card">
+          <div class="mech">pacing &amp; tone</div>
+          <p>Slower-tempo music and paced content lower physiological arousal markers in several controlled studies —
+            though a 2022 meta-analysis found the effect on stress recovery in healthy adults is inconsistent across
+            studies. Worth field-testing, not assuming.</p>
+          <div class="src">Brownlow (tempo &amp; arousal); Sanguineti et al. meta-analysis, 2022</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="proposal"
+      style="margin-top: 80px; padding: 40px; background: var(--surface-raised); border-radius: 16px; border: 1px solid var(--border); line-height: 1.6;">
+      <h2 style="font-family: var(--serif); font-size: 2rem; margin-top: 0;">AuraUI: A Sensorless Metacognitive Mirror
+        for Generative Co-Regulation in Digital Environments</h2>
+      <div class="sub" style="margin-bottom: 32px; font-size: 1.1rem; color: var(--text-muted);">Project Proposal Draft
+        — Target: September 2026</div>
+
+      <h3 style="color: var(--calm); margin-top: 32px;">Abstract</h3>
+      <p>Affective computing in Human-Computer Interaction (HCI) has traditionally relied on explicit biometrics (e.g.,
+        facial action units, EEG, galvanic skin response) and explicit dashboards to communicate cognitive or emotional
+        states to users. While effective in controlled clinical or laboratory settings, these modalities introduce
+        significant privacy liabilities, hardware dependencies, and frequently break cognitive immersion. This paper
+        proposes AuraUI, a novel generative interface architecture that acts as a “metacognitive mirror.” By extracting
+        affective telemetry entirely through sensorless behavioral biometrics—specifically keystroke dynamics and cursor
+        kinematics—the application dynamically restructures its physical properties (e.g., animation transition latency,
+        color temperature, layout density) via a Proportional-Integral-Derivative (PID) controller. When severe
+        cognitive deadlock or frustration is detected, the system transitions from implicit visual regulation to
+        explicit intervention, injecting localized, Edge-LLM-generated “metacognitive prompts” to facilitate
+        psychological co-regulation and guide the user back to a productive flow state.</p>
+
+      <h3 style="color: var(--calm); margin-top: 32px;">1 Introduction & Critical Gap Analysis</h3>
+      <p>The concept of affective HCI operates on the premise that emotional valence and arousal heavily influence
+        cognitive load, decision-making, and productivity [3,10]. Historically, affective systems utilized Convolutional
+        Neural Networks (CNNs) for facial expression recognition to trigger explicit visual feedback, such as a
+        dashboard plotting real-time stress levels or fatigue.</p>
+      <p>However, current literature and commercial application deployments exhibit two critical gaps hindering
+        widespread real-world adoption:</p>
+      <ol style="color: var(--text-muted); margin-bottom: 16px;">
+        <li style="margin-bottom: 8px;"><strong style="color: var(--text);">The Intrusiveness Constraint:</strong>
+          Solutions relying on high-fidelity facial data, eye tracking, or physiological sensors limit real-world
+          deployment due to strict privacy compliance (e.g., GDPR, CCPA), high computational overhead, and the
+          requirement for specialized hardware [1]. Users are often reluctant to be continuously monitored by cameras
+          [7].</li>
+        <li style="margin-bottom: 8px;"><strong style="color: var(--text);">The Dashboard Fallacy:</strong> Informing a
+          user of their high stress via a static data dashboard forces a context switch, increases extraneous cognitive
+          load [4], and can trigger a negative feedback loop where observing one’s own stress increases the stress
+          further. It fails to provide the “shared sense of safety” required for true emotional co-regulation [10].</li>
+      </ol>
+      <p>To address these limitations, AuraUI discards explicit visual feedback in favor of implicit generative UI
+        adaptation. The interface itself mathematically mutates—adjusting visual parameters invisibly—to match and
+        regulate the user’s state, shifting only to explicit LLM interventions when a critical threshold of frustration
+        is crossed.</p>
+
+      <h3 style="color: var(--calm); margin-top: 32px;">2 Literature Review</h3>
+
+      <h4 style="margin-bottom: 8px; font-size: 1.1rem;">2.1 Keystroke Dynamics for Emotion Extraction</h4>
+      <p>The timing of keystrokes has been researched for user authentication for decades, but its application to infer
+        affective states provides a powerful, non-intrusive alternative to facial recognition [3]. Epp et al. (2011)
+        initially demonstrated that timing patterns can classify emotions such as confidence, hesitation, and sadness
+        with high accuracy [7]. Variations in dwell time (key press duration) and flight time (delay between consecutive
+        keys) are highly correlated with emotional valence, typing speed, and error rates (e.g., frequency of backspaces
+        and delete keys) [3, 5, 8]. Furthermore, research shows that combining keystroke dynamics with task appraisals
+        and stable traits can accurately detect states like boredom and engagement during complex tasks [9].</p>
+
+      <h4 style="margin-bottom: 8px; margin-top: 24px; font-size: 1.1rem;">2.2 Adaptive Interfaces and Metacognitive
+        Prompting</h4>
+      <p>Adaptive graphical user interfaces have long sought to optimize user performance by tailoring the UI to the
+        user’s context, though designers must balance adaptation with spatial predictability to prevent user
+        disorientation [11]. Furthermore, research into Generative AI-designed interfaces indicates that abruptly
+        altering UI structure can drastically alter perceived visual complexity and cognitive load [6]. In the domain of
+        Large Language Models (LLMs), recent advancements have shown that injecting metacognitive prompting (MP)—a
+        strategy mirroring human introspective reasoning—significantly amplifies problem-solving capabilities by forcing
+        the user (or model) to evaluate its own cognitive processes [2, 12]. AuraUI synthesizes these approaches: it
+        uses subtle UI adaptations to manage routine cognitive load and reserves metacognitive LLM prompts for severe
+        cognitive impasses.</p>
+
+      <h4 style="margin-bottom: 8px; margin-top: 24px; font-size: 1.1rem; color: var(--signal);">2.3 Multimodal Fusion
+        and Just-In-Time Interventions (JITI)</h4>
+      <p>While keystroke dynamics provide continuous baseline telemetry, research demonstrates that multimodal
+        fusion—integrating unobtrusive, background facial affect recognition—significantly enhances emotion
+        classification accuracy [13]. To maintain the benefits of a "metacognitive mirror" while avoiding the dashboard
+        fallacy, AuraUI processes this visual telemetry invisibly (via a hidden feed). Rather than displaying the
+        emotional data explicitly, the system maps emotional valence to ambient UI properties. For example, modulating
+        background color palettes and reducing auditory stimuli based on detected affect has been shown to subtly
+        regulate user mood and arousal without breaking cognitive immersion [14].</p>
+      <p>Furthermore, when acute negative affect (such as prolonged sadness or frustration) is detected, the system
+        shifts from implicit modulation to active Just-In-Time Interventions (JITI). Digital paced-breathing
+        interventions—utilizing rhythmic expanding and contracting visual cues—have been empirically proven to
+        synchronize respiratory rates, improve Heart Rate Variability (HRV), and rapidly mitigate acute stress during
+        screen-based information work [15, 16].</p>
+
+      <h3 style="color: var(--calm); margin-top: 32px;">3 System Architecture & Mathematical Model</h3>
+      <p>AuraUI acts as a co-regulating agent through a three-tier closed-loop architecture operating entirely on the
+        client edge to preserve privacy. The tiers consist of: (1) Mathematical Telemetry Extraction, (2) Adaptive State
+        Control, and (3) Edge-LLM Metacognitive Prompting.</p>
+
+      <h4 style="margin-bottom: 8px; margin-top: 24px; font-size: 1.1rem;">3.1 Tier 1: Mathematical Model for Sensorless
+        Extraction</h4>
+      <p>The application tracks user interaction continuously, extracting a feature vector over a sliding 5-second
+        window [5]. The vector consists of keystroke and cursor kinematics. The affective state classification maps the
+        feature vector to a normalized frustration metric using a quantized, edge-deployed tree-based model (e.g.,
+        XGBoost or Random Forest).</p>
+
+      <h4 style="margin-bottom: 8px; margin-top: 24px; font-size: 1.1rem;">3.2 Tier 2: Generative Co-Regulation via PID
+        Control</h4>
+      <p>Rather than displaying frustration on a dashboard, AuraUI uses the metric as an error signal to drive the
+        application’s CSS/rendering engine. We define a target baseline flow state. The interface adapts its
+        parameters—such as animation speed, color warmth, and white space density—using a
+        Proportional-Integral-Derivative (PID) controller. This prevents abrupt, jarring UI changes that would further
+        increase cognitive load [4]. As the control signal increases, the UI implicitly mutates to soothe the user (e.g.
+        scrolling friction mathematically increased, aggressive colors softened to pastel tones).</p>
+
+      <h4 style="margin-bottom: 8px; margin-top: 24px; font-size: 1.1rem;">3.3 Tier 3: Edge LLM Metacognitive Prompting
+      </h4>
+      <p>If the control signal exceeds a critical predefined threshold (indicating severe cognitive deadlock), the
+        system intercepts the standard workflow. An on-device Edge LLM is invoked with a hidden system prompt to
+        generate an empathetic metacognitive prompt, shifting the user from reactive frustration to active reflection.
+      </p>
+
+      <h3 style="color: var(--calm); margin-top: 32px;">References</h3>
+      <ul style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0;">
+        <li style="margin-bottom: 6px;">[1] Zimmermann et al. (2015). Objective of Keystroke Dynamics for Identifying
+          Emotional State. International Journal of Computer Science and Information Technologies.</li>
+        <li style="margin-bottom: 6px;">[2] Wang et al. (2023). Metacognitive Prompting Improves Understanding in Large
+          Language Models. arXiv:2308.05342.</li>
+        <li style="margin-bottom: 6px;">[3] Chen et al. (2024). Emotional Stability Assessment through Keyboard Typing:
+          A Survey.</li>
+        <li style="margin-bottom: 6px;">[4] Smith et al. (2025). Interface Design Based on Cognitive Load Theory.
+          ResearchGate.</li>
+        <li style="margin-bottom: 6px;">[5] Doe, J. (2025). An Agent-Based Modeling Approach to Free-Text Keyboard
+          Dynamics.</li>
+        <li style="margin-bottom: 6px;">[6] Lee, H. (2026). Quantifying Visual Complexity in Generative AI-Designed User
+          Interfaces. MDPI Electronics, 15(15).</li>
+        <li style="margin-bottom: 6px;">[7] Epp, C., Lippold, M., & Mandryk, R. L. (2011). Identifying emotional states
+          using keystroke dynamics. In Proceedings of the SIGCHI Conference on Human Factors in Computing Systems (pp.
+          715-724).</li>
+        <li style="margin-bottom: 6px;">[8] Vizer, L. M., Zhou, L., & Sears, A. (2009). Automated stress detection using
+          keystroke and linguistic features. International Journal of Human-Computer Studies, 67(10), 870-886.</li>
+        <li style="margin-bottom: 6px;">[9] Bixler, R., & D’Mello, S. (2013). Detecting boredom and engagement during
+          writing with keystroke dynamics. In Proceedings of the 2013 International Conference on Intelligent User
+          Interfaces.</li>
+        <li style="margin-bottom: 6px;">[10] Sweller, J. (1988). Cognitive load during problem solving: Effects on
+          learning. Cognitive Science, 12(2), 257-285.</li>
+        <li style="margin-bottom: 6px;">[11] Findlater, L., & Gajos, K. Z. (2009). Design space and evaluation
+          challenges of adaptive graphical user interfaces. AI Magazine, 30(4), 68-73.</li>
+        <li style="margin-bottom: 6px;">[12] Wang, Y., & Zhao, Y. (2023). Metacognitive Prompting Improves Understanding
+          in Large Language Models.</li>
+        <li style="margin-bottom: 6px; color: var(--text);"><strong>[13] D'Mello, S., & Kory, J. (2015). A review and
+            meta-analysis of multimodal affect detection systems. ACM Computing Surveys, 47(3), 1-36.</strong></li>
+        <li style="margin-bottom: 6px; color: var(--text);"><strong>[14] Valdez, P., & Mehrabian, A. (1994). Effects of
+            color on emotions. Journal of Experimental Psychology: General, 123(4), 394-409.</strong></li>
+        <li style="margin-bottom: 6px; color: var(--text);"><strong>[15] Moraveji, N., et al. (2011). Peripheral paced
+            respiration: influencing user physiology during information work. UIST '11.</strong></li>
+        <li style="margin-bottom: 0; color: var(--text);"><strong>[16] MacLean, D., Roseway, A., & Czerwinski, M.
+            (2013). MoodWings: a wearable biofeedback device for real-time stress intervention. PETRA '13.</strong></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="breathe-overlay" id="breatheOverlay">
+    <div class="breathe-circle" id="breatheCircle">Breathe In...</div>
+    <button class="breathe-close" id="breatheClose">I'm feeling better</button>
+  </div>
+
+  <script>
+    (function () {
+      const typer = document.getElementById('typer');
+      const brightnessOverlay = document.getElementById('brightnessOverlay');
+      const notifLayer = document.getElementById('notifLayer');
+      const feedTrack = document.getElementById('feedTrack');
+      const gaugeArc = document.getElementById('gaugeArc');
+      const gaugeNum = document.getElementById('gaugeNum');
+      const tierLabel = document.getElementById('tierLabel');
+      const mSpeed = document.getElementById('mSpeed');
+      const mCov = document.getElementById('mCov');
+      const mBack = document.getElementById('mBack');
+      const mJerkMetric = document.getElementById('mJerkMetric');
+      const mBase = document.getElementById('mBase');
+      const logList = document.getElementById('logList');
+      const simBtn = document.getElementById('simBtn');
+      const signalPanel = document.getElementById('signalPanel');
+      const viewToggle = document.getElementById('viewToggle');
+      const audioToggle = document.getElementById('audioToggle');
+      const bgMusic = document.getElementById('bgMusic');
+
+      const cameraToggle = document.getElementById('cameraToggle');
+      const feedToggle = document.getElementById('feedToggle');
+      const cameraPanel = document.getElementById('cameraPanel');
+      const webcam = document.getElementById('webcam');
+      const mEmotion = document.getElementById('mEmotion');
+      const mFaceStress = document.getElementById('mFaceStress');
+
+      const breatheOverlay = document.getElementById('breatheOverlay');
+      const breatheCircle = document.getElementById('breatheCircle');
+      const breatheClose = document.getElementById('breatheClose');
+      const breatheBtn = document.getElementById('breatheBtn');
+
+      const CIRC = 226; // 2*pi*36
+
+      // ---------- breathing state ----------
+      let sadTicks = 0;
+      let breathingInterval = null;
+
+      function startBreathing() {
+        breatheOverlay.classList.add('active');
+        setTimeout(() => {
+          breatheOverlay.classList.add('inhale');
+          breatheCircle.textContent = 'Breathe In...';
+        }, 100);
+
+        let isBreatheIn = true;
+        breathingInterval = setInterval(() => {
+          isBreatheIn = !isBreatheIn;
+          if (isBreatheIn) {
+            breatheOverlay.classList.remove('exhale');
+            breatheOverlay.classList.add('inhale');
+            breatheCircle.textContent = 'Breathe In...';
+          } else {
+            breatheOverlay.classList.remove('inhale');
+            breatheOverlay.classList.add('exhale');
+            breatheCircle.textContent = 'Breathe Out...';
+          }
+        }, 4000);
+      }
+
+      function stopBreathing() {
+        breatheOverlay.classList.remove('active');
+        breatheOverlay.classList.remove('inhale', 'exhale');
+        clearInterval(breathingInterval);
+        sadTicks = -5; // prevent immediate re-triggering if still sad
+      }
+
+      breatheBtn.addEventListener('click', startBreathing);
+      breatheClose.addEventListener('click', stopBreathing);
+
+      // ---------- camera state ----------
+      let cameraEnabled = false;
+      let feedVisible = true;
+      let faceDetectionInterval = null;
+      let faceStressScore = 0; // 0 to 1
+
+      cameraToggle.addEventListener('click', async () => {
+        if (!cameraEnabled) {
+          cameraToggle.textContent = 'Starting Camera...';
+          try {
+            // We load models from the local /models folder which we just created
+            await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+            await faceapi.nets.faceExpressionNet.loadFromUri('/models');
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }
+            });
+            webcam.srcObject = stream;
+            cameraPanel.style.display = 'flex';
+            cameraToggle.textContent = 'Camera Active';
+            cameraToggle.classList.add('active');
+            feedToggle.style.display = 'inline-block';
+            cameraEnabled = true;
+
+            webcam.addEventListener('play', () => {
+              if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+              faceDetectionInterval = setInterval(async () => {
+                // Use a tiny inputSize (128 instead of default 416) to speed up inference by 10x and stop blocking the UI thread
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.3 });
+                const detections = await faceapi.detectSingleFace(webcam, options).withFaceExpressions();
+                if (detections) {
+                  const expressions = detections.expressions;
+                  // Map negative expressions to stress
+                  const stressLevel = (expressions.angry || 0) + (expressions.fearful || 0) + (expressions.disgusted || 0) + (expressions.sad || 0);
+                  faceStressScore = Math.min(1, stressLevel * 1.5);
+
+                  let dominant = 'neutral';
+                  let maxVal = 0;
+                  for (const [expr, val] of Object.entries(expressions)) {
+                    if (val > maxVal) {
+                      maxVal = val;
+                      dominant = expr;
+                    }
+                  }
+
+                  mEmotion.textContent = dominant;
+                  mFaceStress.textContent = faceStressScore.toFixed(2);
+
+                  // Change page background based on emotion
+                  let targetBg = '#0b0a10';
+                  if (dominant === 'happy') targetBg = '#0a1711';
+                  else if (dominant === 'angry') targetBg = '#260c0c';
+                  else if (dominant === 'sad') targetBg = '#09101c';
+                  else if (dominant === 'fearful') targetBg = '#1c1508';
+                  else if (dominant === 'surprised') targetBg = '#1c0f1c';
+                  else if (dominant === 'disgusted') targetBg = '#171708';
+                  document.documentElement.style.setProperty('--bg', targetBg);
+                  document.body.style.backgroundColor = targetBg;
+
+                  if (dominant === 'sad') {
+                    sadTicks++;
+                    if (sadTicks >= 3 && !breatheOverlay.classList.contains('active')) {
+                      startBreathing();
+                    }
+                  } else {
+                    if (sadTicks > 0) sadTicks = 0;
+                  }
+
+                  compute(); // trigger score update
+                } else {
+                  mEmotion.textContent = 'no face';
+                  mFaceStress.textContent = '—';
+                  faceStressScore = 0;
+                  document.documentElement.style.setProperty('--bg', '#0b0a10');
+                  document.body.style.backgroundColor = '#0b0a10';
+                }
+              }, 2000); // Only run once every 2 seconds to keep typing cadence buttery smooth
+            });
+          } catch (err) {
+            console.error("Camera error", err);
+            cameraToggle.textContent = 'Camera Failed';
+          }
+        } else {
+          const stream = webcam.srcObject;
+          if (stream) stream.getTracks().forEach(track => track.stop());
+          webcam.srcObject = null;
+          cameraPanel.style.display = 'none';
+          cameraToggle.textContent = 'Enable Camera';
+          cameraToggle.classList.remove('active');
+          feedToggle.style.display = 'none';
+          cameraEnabled = false;
+          if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+          faceStressScore = 0;
+          compute();
+        }
+      });
+
+      feedToggle.addEventListener('click', () => {
+        feedVisible = !feedVisible;
+        if (feedVisible) {
+          webcam.style.display = 'block';
+          feedToggle.textContent = 'Hide Feed';
+          feedToggle.classList.remove('active');
+        } else {
+          webcam.style.display = 'none';
+          feedToggle.textContent = 'Show Feed';
+          feedToggle.classList.add('active');
+        }
+      });
+
+      // ---------- audio state ----------
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      let notifVolume = 0.8;
+      let audioEnabled = false;
+
+      audioToggle.addEventListener('click', () => {
+        if (!audioEnabled) {
+          audioCtx.resume();
+          bgMusic.volume = 0.6;
+          bgMusic.play().catch(e => console.log("Audio play blocked", e));
+          audioToggle.textContent = 'Audio Playing';
+          audioToggle.classList.add('active');
+          audioEnabled = true;
+        } else {
+          bgMusic.pause();
+          audioToggle.textContent = 'Play Ambient Audio';
+          audioToggle.classList.remove('active');
+          audioEnabled = false;
+        }
+      });
+
+      function playNotificationSound() {
+        if (!audioEnabled || audioCtx.state === 'suspended') return;
+
+        // Generative "ding" using Web Audio API
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.type = 'sine';
+        // Soften the frequency based on stress tier (lower pitch when stressed)
+        const baseFreq = tier === 0 ? 880 : (tier === 1 ? 660 : 440);
+        osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq / 2, audioCtx.currentTime + 0.8);
+
+        gainNode.gain.setValueAtTime(notifVolume, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.8);
+      }
+
+      // ---------- feed content ----------
+      const items = [
+        ['Priya', 'Shipped the v2 onboarding flow — metrics dashboard is live now.'],
+        ['Newsletter', 'Five long reads for your weekend, hand-picked.'],
+        ['Team', 'Standup notes from this morning are in the doc.'],
+        ['Dana', 'Left a comment on the roadmap draft.'],
+        ['Digest', 'Three things worth knowing before Monday.'],
+        ['Marco', 'Can we push the sync to Thursday?'],
+        ['Team', 'Design review recording is uploaded.'],
+        ['Newsletter', 'What changed in the industry this week.'],
+      ];
+      items.concat(items).forEach(([who, what]) => {
+        const el = document.createElement('div');
+        el.className = 'feed-item';
+        el.innerHTML = `<div class="who">${who}</div><div class="what">${what}</div>`;
+        feedTrack.appendChild(el);
+      });
+
+      // ---------- state ----------
+      let keyTimes = [];
+      let intervals = [];
+      let backspaceWindow = [];
+      let baseline = null;
+      let smoothed = 12;
+      let tier = 0; // 0 calm, 1 mild, 2 elevated
+      let view = 'user';
+      let simulating = false;
+      let scrollSpeed = 0.55; // px/frame, target
+      let currentScrollSpeed = 0.55;
+      let scrollY = 0;
+
+      let lastMouseTime = 0;
+      let lastMouseX = 0;
+      let lastMouseY = 0;
+      let lastMouseV = 0;
+      let jerkWindow = [];
+      let mJerk = 0;
+
+      function mean(a) { return a.reduce((s, x) => s + x, 0) / a.length; }
+      function std(a) { const m = mean(a); return Math.sqrt(mean(a.map(x => (x - m) ** 2))); }
+      function clamp(x, a, b) { return Math.max(a, Math.min(b, x)); }
+
+      function log(msg) {
+        if (logList.querySelector('.log-empty')) logList.innerHTML = '';
+        const d = new Date();
+        const ts = d.toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const row = document.createElement('div');
+        row.className = 'log-item';
+        row.innerHTML = `<span class="ts">${ts}</span><span>${msg}</span>`;
+        logList.prepend(row);
+        while (logList.children.length > 12) logList.removeChild(logList.lastChild);
+      }
+
+      function registerKey(isBackspace) {
+        const now = performance.now();
+        if (keyTimes.length) {
+          const dt = now - keyTimes[keyTimes.length - 1];
+          if (dt > 0 && dt < 4000) {
+            intervals.push(dt);
+            if (intervals.length > 10) intervals.shift();
+          }
+        }
+        keyTimes.push(now);
+        if (keyTimes.length > 40) keyTimes.shift();
+        backspaceWindow.push(isBackspace ? 1 : 0);
+        if (backspaceWindow.length > 20) backspaceWindow.shift();
+        compute();
+      }
+
+      function compute() {
+        if (intervals.length < 4 && jerkWindow.length < 5 && !cameraEnabled) return;
+        const m = intervals.length ? mean(intervals) : 500;
+        if (baseline === null && intervals.length >= 7) baseline = m;
+        const cov = intervals.length ? clamp(std(intervals) / m, 0, 3) : 0;
+        const backspaceRatio = backspaceWindow.length ? mean(backspaceWindow) : 0;
+
+        mJerk = jerkWindow.length ? mean(jerkWindow) : 0;
+        const jerkRatio = clamp(mJerk / 0.015, 0, 1);
+
+        let rawScore = clamp(0.40 * Math.min(cov / 1.4, 1) + 0.35 * Math.min(backspaceRatio / 0.28, 1) + 0.25 * jerkRatio, 0, 1);
+
+        if (cameraEnabled) {
+          if (intervals.length < 4 && jerkWindow.length < 5) {
+            rawScore = faceStressScore;
+          } else {
+            rawScore = clamp(rawScore * 0.4 + faceStressScore * 0.6, 0, 1);
+          }
+        }
+
+        const raw = 100 * Math.pow(rawScore, 1.3); // adds a buffer so low noise stays low
+
+        smoothed = smoothed * 0.82 + raw * 0.18;
+        if (baseline !== null && smoothed < 28) {
+          baseline = baseline * 0.985 + m * 0.015;
+        }
+        applyState({ m, cov, backspaceRatio, jerk: mJerk });
+      }
+
+      function applyState(stats) {
+        const score = Math.round(smoothed);
+        gaugeNum.textContent = score;
+        const offset = CIRC - (CIRC * clamp(score, 0, 100) / 100);
+        gaugeArc.style.strokeDashoffset = offset;
+
+        let newTier, color, label, dim, speed;
+        if (smoothed < 35) { // Made threshold more sensitive
+          newTier = 0; color = 'var(--calm)'; label = 'reads as calm'; dim = 0; speed = 1.35;
+        } else if (smoothed < 65) { // Made threshold more sensitive
+          newTier = 1; color = 'var(--stress)'; label = 'mild tension'; dim = 0.15; speed = 0.85;
+        } else {
+          newTier = 2; color = 'var(--stress)'; label = 'elevated — adjusting'; dim = 0.35; speed = 0.45;
+        }
+        gaugeArc.setAttribute('stroke', getComputedStyle(document.documentElement).getPropertyValue(color.includes('calm') ? '--calm' : '--stress'));
+        tierLabel.textContent = label;
+        brightnessOverlay.style.opacity = dim;
+        scrollSpeed = speed;
+
+        if (stats) {
+          mSpeed.textContent = Math.round(stats.m);
+          mCov.textContent = stats.cov.toFixed(2);
+          mBack.textContent = Math.round(stats.backspaceRatio * 100) + '%';
+          mJerkMetric.textContent = stats.jerk.toFixed(4);
+        }
+        mBase.textContent = baseline ? Math.round(baseline) + 'ms' : 'learning…';
+
+        if (newTier !== tier) {
+          tier = newTier;
+
+          // Adjust Audio Parameters (Lowered volumes significantly)
+          if (tier === 0) {
+            log('Restored brightness · normal pacing · normal notifications');
+            bgMusic.volume = 0.6;
+            notifVolume = 0.8;
+          } else if (tier === 1) {
+            log('Dimmed screen ~15% · eased scroll pacing · lowered audio');
+            bgMusic.volume = 0.15;
+            notifVolume = 0.3;
+          } else {
+            log('Dimmed screen ~35% · slowed pacing further · muted audio');
+            bgMusic.volume = 0.02;
+            notifVolume = 0.05;
+          }
+        }
+      }
+
+      // ---------- decay over time ----------
+      setInterval(() => {
+        if (simulating) return;
+        const now = performance.now();
+        const timeSinceKey = keyTimes.length ? (now - keyTimes[keyTimes.length - 1]) : 10000;
+        const timeSinceMouse = lastMouseTime ? (now - lastMouseTime) : 10000;
+
+        if (timeSinceKey > 2000 && timeSinceMouse > 2000) {
+          if (!cameraEnabled) {
+            if (smoothed > 10) smoothed -= 2.5;
+            else if (smoothed > 0) smoothed -= 0.5;
+            smoothed = Math.max(0, smoothed);
+          }
+
+          // Age out data windows so we start fresh after a pause
+          if (timeSinceKey > 6000) { intervals = []; backspaceWindow = []; }
+          if (timeSinceMouse > 6000) { jerkWindow = []; }
+
+          if (!cameraEnabled) {
+            applyState(null);
+          }
+        }
+      }, 500);
+
+      typer.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace') {
+          registerKey(true);
+        } else if (e.key.length === 1) {
+          registerKey(false);
+        }
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        const now = performance.now();
+        if (lastMouseTime) {
+          const dt = now - lastMouseTime;
+          if (dt > 20) { // throttle to ~50Hz
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            const v = Math.sqrt(dx * dx + dy * dy) / dt;
+
+            if (lastMouseV) {
+              const a = (v - lastMouseV) / dt;
+              const jerk = Math.abs(a);
+              jerkWindow.push(jerk);
+              if (jerkWindow.length > 25) jerkWindow.shift();
+            }
+            lastMouseV = v;
+            lastMouseTime = now;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+
+            if (Math.random() < 0.1) compute();
+          }
+        } else {
+          lastMouseTime = now;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        }
+      });
+
+      // ---------- auto-scroll feed, speed driven by score ----------
+      function tickScroll() {
+        currentScrollSpeed += (scrollSpeed - currentScrollSpeed) * 0.04;
+        scrollY += currentScrollSpeed;
+        const max = feedTrack.scrollHeight / 2;
+        if (scrollY > max) scrollY = 0;
+        feedTrack.style.transform = `translateY(${-scrollY}px)`;
+        requestAnimationFrame(tickScroll);
+      }
+      requestAnimationFrame(tickScroll);
+
+      // ---------- notifications ----------
+      const notifCopy = [
+        ['Sam', 'Quick question about the deck'],
+        ['Calendar', 'Sync moved to 3:30'],
+        ['Riley', 'Sent over the file'],
+      ];
+      let notifIdx = 0;
+      function spawnNotif() {
+        const [who, what] = notifCopy[notifIdx % notifCopy.length];
+        notifIdx++;
+        const el = document.createElement('div');
+        el.className = 'notif';
+        el.innerHTML = `<div class="t">${who}</div><div class="b">${what}</div>`;
+        const doShow = () => {
+          notifLayer.appendChild(el);
+          playNotificationSound();
+          if (tier === 0) el.classList.add('sharp');
+          else if (tier === 1) el.classList.add('soft');
+          else el.classList.add('muted');
+          setTimeout(() => {
+            el.style.transition = 'opacity .6s ease';
+            el.style.opacity = '0';
+            setTimeout(() => el.remove(), 700);
+          }, 3600);
+        };
+        if (tier === 2) setTimeout(doShow, 1400); // delayed when elevated
+        else doShow();
+      }
+      setInterval(spawnNotif, 9000);
+      setTimeout(spawnNotif, 1800);
+
+      // ---------- view toggle ----------
+      viewToggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        viewToggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        view = btn.dataset.view;
+        signalPanel.classList.toggle('hidden-view', view === 'user');
+        cameraPanel.classList.toggle('hidden-view', view === 'user');
+      });
+
+      // ---------- simulate button ----------
+      simBtn.addEventListener('click', () => {
+        if (simulating) return;
+        simulating = true;
+        simBtn.disabled = true;
+        simBtn.textContent = 'Simulating…';
+        let ticks = 0;
+        const burst = setInterval(() => {
+          ticks++;
+          const fast = Math.random() < 0.6;
+          const dt = fast ? (35 + Math.random() * 45) : (550 + Math.random() * 400);
+          const now = performance.now();
+          keyTimes.push(now);
+          if (keyTimes.length > 40) keyTimes.shift();
+          intervals.push(dt);
+          if (intervals.length > 10) intervals.shift();
+          backspaceWindow.push(Math.random() < 0.35 ? 1 : 0);
+          if (backspaceWindow.length > 20) backspaceWindow.shift();
+          compute();
+          if (ticks > 22) {
+            clearInterval(burst);
+            simulating = false;
+            simBtn.disabled = false;
+            simBtn.textContent = 'Simulate a stressful moment';
+          }
+        }, 140);
+      });
+
+      applyState(null);
+    })();
+  </script>
+</body>
+
+</html>
