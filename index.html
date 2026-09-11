@@ -999,8 +999,8 @@
           cameraToggle.textContent = 'Starting Camera...';
           try {
             // We load models from the local /models folder which we just created
-            await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-            await faceapi.nets.faceExpressionNet.loadFromUri('/models');
+            await faceapi.nets.tinyFaceDetector.loadFromUri('./models');
+            await faceapi.nets.faceExpressionNet.loadFromUri('./models');
 
             const stream = await navigator.mediaDevices.getUserMedia({
               video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 10 } }
