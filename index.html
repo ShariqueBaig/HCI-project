@@ -25,6 +25,13 @@
       --serif: "Source Serif 4", Georgia, serif;
       --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+      
+      /* Generative UI Variables */
+      --gen-padding: 14px;
+      --gen-blur: 0px;
+      --gen-line-height: 1.5;
+      --gen-radius: 10px;
+      --gen-bg-tint: rgba(217, 160, 84, 0);
     }
 
     * {
@@ -140,6 +147,8 @@
       border-radius: 16px;
       overflow: hidden;
       position: relative;
+      box-shadow: inset 0 0 100px var(--gen-bg-tint);
+      transition: box-shadow 1.4s ease;
     }
 
     .device-bar {
@@ -182,6 +191,8 @@
       overflow: hidden;
       position: relative;
       padding: 18px 20px 0;
+      filter: blur(var(--gen-blur));
+      transition: filter 1.4s ease;
     }
 
     .feed-track {
@@ -194,9 +205,9 @@
     .feed-item {
       background: var(--surface-raised);
       border: 1px solid var(--border-soft);
-      border-radius: 10px;
-      padding: 14px 16px;
-      transition: padding .9s ease, gap .9s ease;
+      border-radius: var(--gen-radius);
+      padding: var(--gen-padding) 16px;
+      transition: padding .9s ease, gap .9s ease, border-radius .9s ease;
     }
 
     .feed-item .who {
@@ -229,13 +240,14 @@
       resize: vertical;
       background: var(--surface-raised);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: var(--gen-radius);
       color: var(--text);
       font-family: var(--sans);
       font-size: 0.92rem;
-      line-height: 1.5;
-      padding: 12px 14px;
+      line-height: var(--gen-line-height);
+      padding: var(--gen-padding) 14px;
       outline: none;
+      transition: padding .9s ease, border-radius .9s ease, line-height .9s ease;
     }
 
     .compose textarea:focus {
@@ -258,6 +270,8 @@
       gap: 8px;
       width: 230px;
       pointer-events: none;
+      filter: blur(var(--gen-blur));
+      transition: filter 1.4s ease;
     }
 
     .notif {
@@ -608,6 +622,116 @@
       background: var(--surface-raised);
       color: var(--text);
     }
+
+    /* ---------- llm intervention ---------- */
+    .llm-intervention {
+      position: fixed;
+      bottom: -400px;
+      right: 24px;
+      width: 320px;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      z-index: 1000;
+      transition: bottom 0.6s cubic-bezier(0.2, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .llm-intervention.active {
+      bottom: 24px;
+    }
+
+    .llm-intervention .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--calm);
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+
+    .llm-intervention .chat-history {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .llm-intervention .chat-history::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .llm-intervention .chat-history::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    .llm-intervention .chat-msg {
+      font-size: 0.9rem;
+      line-height: 1.4;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--text);
+    }
+    
+    .llm-intervention .chat-msg.system {
+      background: rgba(140, 158, 224, 0.1);
+      border: 1px solid rgba(140, 158, 224, 0.2);
+    }
+    
+    .llm-intervention .chat-msg.user {
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      align-self: flex-end;
+      color: var(--text-muted);
+    }
+
+    .llm-intervention textarea {
+      width: 100%;
+      min-height: 60px;
+      background: var(--surface);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 10px;
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      resize: none;
+      outline: none;
+    }
+
+    .llm-intervention textarea:focus {
+      border-color: var(--border);
+    }
+
+    .llm-intervention .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .llm-intervention button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .llm-intervention button:hover {
+      background: var(--surface);
+      color: var(--text);
+    }
   </style>
 </head>
 
@@ -898,6 +1022,20 @@
     <button class="breathe-close" id="breatheClose">I'm feeling better</button>
   </div>
 
+  <div class="llm-intervention" id="llmIntervention">
+    <div class="header">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"></path><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+      Aura
+    </div>
+    <div class="chat-history" id="llmChatHistory"></div>
+    <textarea id="llmInput" placeholder="I'm struggling with..."></textarea>
+    <div class="actions">
+      <button id="llmBreathe">Breathe</button>
+      <button id="llmDismiss">I'm Good</button>
+      <button id="llmSend">Send</button>
+    </div>
+  </div>
+
   <script>
     (function () {
       const typer = document.getElementById('typer');
@@ -930,6 +1068,131 @@
       const breatheCircle = document.getElementById('breatheCircle');
       const breatheClose = document.getElementById('breatheClose');
       const breatheBtn = document.getElementById('breatheBtn');
+
+      // ---------- LLM Intervention Setup ----------
+      const llmIntervention = document.getElementById('llmIntervention');
+      const llmChatHistory = document.getElementById('llmChatHistory');
+      const llmInput = document.getElementById('llmInput');
+      const llmDismiss = document.getElementById('llmDismiss');
+      const llmSend = document.getElementById('llmSend');
+      const llmBreathe = document.getElementById('llmBreathe');
+      
+      function getApiKey() {
+        let key = localStorage.getItem('gemini_api_key');
+        if (!key) {
+          key = prompt("Enter your Gemini API Key for AI intervention (stored locally in your browser):");
+          if (key) {
+            key = key.trim();
+            localStorage.setItem('gemini_api_key', key);
+          }
+        }
+        return key || "";
+      }
+
+      let elevatedTime = 0;
+      let llmActive = false;
+      let llmChatContext = [];
+      
+      const systemInstruction = "You are Aura, an empathetic metacognitive mirror. The user is experiencing high cognitive load or frustration. Your goal is to actively coach them towards better mental health, co-regulate their stress, and gently guide them back to a productive state. Keep responses very short (1-2 sentences). Do not give generic advice, just ask gentle questions to help them vent and reflect. IMPORTANT: If the user indicates they feel better, are done, or are 'good', you MUST instruct them to click the 'I'm Good' button below to dismiss this chat and return to their work.";
+
+      function addChatMessage(role, text, id = null) {
+        const el = document.createElement('div');
+        el.className = `chat-msg ${role}`;
+        if (id) el.id = id;
+        el.textContent = text;
+        llmChatHistory.appendChild(el);
+        llmChatHistory.scrollTop = llmChatHistory.scrollHeight;
+      }
+
+      async function triggerIntervention() {
+        if (llmActive) return;
+        llmActive = true;
+        llmIntervention.classList.add('active');
+        llmInput.value = "";
+        llmChatHistory.innerHTML = "";
+        llmChatContext = [];
+        
+        addChatMessage('system', "Thinking...", 'llmLoading');
+        
+        try {
+          const apiKey = getApiKey();
+          if (!apiKey) throw new Error("No API key configured");
+          llmChatContext.push({ role: 'user', parts: [{ text: "I am feeling stressed. Please ask me a brief question to help me reflect on what is blocking me." }] });
+          
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemInstruction }] },
+              contents: llmChatContext
+            })
+          });
+          if (!response.ok) throw new Error("API failed");
+          const data = await response.json();
+          const text = data.candidates[0].content.parts[0].text;
+          
+          llmChatContext.push({ role: 'model', parts: [{ text: text }] });
+          document.getElementById('llmLoading')?.remove();
+          addChatMessage('system', text);
+        } catch (e) {
+          console.error(e);
+          document.getElementById('llmLoading')?.remove();
+          addChatMessage('system', "You seem a bit stuck. Want to talk about what's blocking you?");
+        }
+      }
+
+      llmDismiss.addEventListener('click', () => {
+        llmIntervention.classList.remove('active');
+        llmActive = false;
+        elevatedTime = 0; 
+        smoothed = 10; 
+        applyState(null);
+      });
+
+      llmSend.addEventListener('click', async () => {
+        const userText = llmInput.value.trim();
+        if (!userText) return;
+        
+        addChatMessage('user', userText);
+        llmInput.value = "";
+        llmInput.disabled = true;
+        llmSend.disabled = true;
+        
+        llmChatContext.push({ role: 'user', parts: [{ text: userText }] });
+        addChatMessage('system', "Processing...", 'llmLoading2');
+
+        try {
+          const apiKey = getApiKey();
+          if (!apiKey) throw new Error("No API key configured");
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: systemInstruction }] },
+              contents: llmChatContext
+            })
+          });
+          if (!response.ok) throw new Error("API failed");
+          const data = await response.json();
+          const text = data.candidates[0].content.parts[0].text;
+          
+          llmChatContext.push({ role: 'model', parts: [{ text: text }] });
+          document.getElementById('llmLoading2')?.remove();
+          addChatMessage('system', text);
+        } catch (e) {
+          console.error(e);
+          document.getElementById('llmLoading2')?.remove();
+          addChatMessage('system', "I hear you. Take a moment to breathe.");
+        }
+
+        llmInput.disabled = false;
+        llmSend.disabled = false;
+        llmInput.focus();
+      });
+
+      llmBreathe.addEventListener('click', () => {
+        startBreathing();
+      });
 
       const CIRC = 226; // 2*pi*36
 
@@ -1223,6 +1486,21 @@
 
       function applyState(stats) {
         const score = Math.round(smoothed);
+        
+        // Generative UI Adjustments
+        const stressRatio = clamp(score / 100, 0, 1);
+        const genPadding = 14 + (stressRatio * 16); // 14 to 30px
+        const genLineHeight = 1.5 + (stressRatio * 0.8); // 1.5 to 2.3
+        const genRadius = 10 + (stressRatio * 14); // 10 to 24px
+        const genBlur = stressRatio > 0.4 ? (stressRatio - 0.4) * 6 : 0; // 0 to 3.6px
+        const genTint = `rgba(217, 160, 84, ${stressRatio * 0.15})`;
+
+        document.documentElement.style.setProperty('--gen-padding', `${genPadding}px`);
+        document.documentElement.style.setProperty('--gen-line-height', genLineHeight);
+        document.documentElement.style.setProperty('--gen-radius', `${genRadius}px`);
+        document.documentElement.style.setProperty('--gen-blur', `${genBlur}px`);
+        document.documentElement.style.setProperty('--gen-bg-tint', genTint);
+
         gaugeNum.textContent = score;
         const offset = CIRC - (CIRC * clamp(score, 0, 100) / 100);
         gaugeArc.style.strokeDashoffset = offset;
@@ -1270,6 +1548,15 @@
 
       // ---------- decay over time ----------
       setInterval(() => {
+        if (tier === 2 && !llmActive) {
+          elevatedTime += 500;
+          if (elevatedTime >= 2000) { 
+            triggerIntervention();
+          }
+        } else if (tier < 2) {
+          elevatedTime = 0;
+        }
+
         if (simulating) return;
         const now = performance.now();
         const timeSinceKey = keyTimes.length ? (now - keyTimes[keyTimes.length - 1]) : 10000;
