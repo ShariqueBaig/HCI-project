@@ -74,13 +74,24 @@
     }
 
     .orb:nth-child(3) {
-      width: 400px;
-      height: 400px;
+      width: 300px;
+      height: 300px;
+      top: -50px;
+      left: 50%;
       background: var(--accent-3);
-      top: 30%;
-      left: 40%;
       opacity: 0.2;
-      animation-delay: -10s;
+      animation-delay: -2s;
+    }
+
+    .bg-svg-art {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 100; /* Move above the glass cards to prevent blur */
+      opacity: 0.4; /* Soften the lines so they don't block text */
+      pointer-events: none;
     }
 
     @keyframes float {
@@ -419,8 +430,48 @@
 </head>
 <body>
 
-  <!-- Background Animated Elements -->
-  <div class="bg-orbs">
+  <!-- Custom Minimalist SVG Art -->
+  <svg class="bg-svg-art" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <!-- Expanding Aura Rings (Center) -->
+    <circle cx="720" cy="450" r="300" fill="none" stroke="rgba(140, 158, 224, 0.25)" stroke-width="3" />
+    <circle cx="720" cy="450" r="450" fill="none" stroke="rgba(140, 158, 224, 0.15)" stroke-width="3" />
+    <circle cx="720" cy="450" r="600" fill="none" stroke="rgba(140, 158, 224, 0.1)" stroke-width="3" />
+    
+    <!-- Minimalist Stickfigure at Desk (Left) -->
+    <g stroke="rgba(255, 255, 255, 0.3)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <!-- Desk -->
+      <line x1="50" y1="700" x2="450" y2="700" />
+      <!-- Monitor -->
+      <rect x="300" y="550" width="100" height="70" rx="4" />
+      <line x1="350" y1="620" x2="350" y2="700" />
+      <!-- Stickfigure -->
+      <circle cx="150" cy="500" r="25" />
+      <path d="M150 525 Q170 600 130 700" /> <!-- Spine -->
+      <path d="M160 550 Q230 600 270 680" /> <!-- Arms -->
+      <path d="M130 700 Q100 800 100 850" /> <!-- Leg 1 -->
+      <path d="M130 700 Q150 800 180 850" /> <!-- Leg 2 -->
+    </g>
+    
+    <!-- Abstract ML Nodes (Right) -->
+    <g stroke="rgba(140, 158, 224, 0.3)" stroke-width="3" fill="none">
+      <path d="M1000 300 L1200 200 L1400 400 L1300 600 L1100 550 Z" />
+      <path d="M1200 200 L1300 600" />
+      <path d="M1000 300 L1100 550" />
+      <circle cx="1000" cy="300" r="8" fill="rgba(140, 158, 224, 0.4)" />
+      <circle cx="1200" cy="200" r="8" fill="rgba(140, 158, 224, 0.4)" />
+      <circle cx="1400" cy="400" r="8" fill="rgba(140, 158, 224, 0.4)" />
+      <circle cx="1300" cy="600" r="8" fill="rgba(140, 158, 224, 0.4)" />
+      <circle cx="1100" cy="550" r="8" fill="rgba(140, 158, 224, 0.4)" />
+    </g>
+    
+    <!-- Invisible Connection Line -->
+    <path d="M360 585 C 600 400, 800 600, 1100 550" stroke="rgba(140, 158, 224, 0.4)" stroke-width="4" stroke-dasharray="10 15" fill="none">
+      <animate attributeName="stroke-dashoffset" from="100" to="0" dur="5s" repeatCount="indefinite" />
+    </path>
+  </svg>
+
+  <!-- Ambient background elements -->
+  <div class="bg-elements bg-orbs">
     <div class="orb"></div>
     <div class="orb"></div>
     <div class="orb"></div>
@@ -625,7 +676,24 @@
       </div>
     </div>
 
-    <!-- Slide 10: Conclusion -->
+    <!-- Slide 10: Immersive Audio Layer -->
+    <div class="slide">
+      <div class="content-card" style="text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 60px;">
+        <h1 style="font-size: 3.5rem; margin-bottom: 20px;">Immersive Audio Layer</h1>
+        <p style="font-size: 1.3rem; margin-bottom: 40px; color: var(--text-muted); max-width: 800px; line-height: 1.6;">
+          Beyond visual adjustments, Aura UI introduces an adaptive auditory environment. When stress patterns are detected, it seamlessly blends in calming, lo-fi background audio to ground the user and improve focus.
+        </p>
+        <div style="background: rgba(140, 158, 224, 0.1); border: 1px solid rgba(140, 158, 224, 0.3); padding: 30px; border-radius: 20px; max-width: 600px; display: flex; align-items: center; gap: 20px; text-align: left;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-1)" stroke-width="2" style="flex-shrink: 0;"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+          <div>
+            <h3 style="margin-bottom: 8px; color: var(--accent-1); font-size: 1.3rem;">Continuous Serenity</h3>
+            <p style="font-size: 1rem; margin-bottom: 0; color: #fff;">The audio layer acts as a gentle anchor, providing rhythmic stability without being intrusive.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 11: Conclusion -->
     <div class="slide">
       <div class="content-card">
         <h1>Conclusion</h1>
