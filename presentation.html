@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aura AI Project Presentation</title>
+  
+  <!-- Modern Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-color: #0b0a10;
+      --accent-1: #7fae9d; /* Calm */
+      --accent-2: #8c9ee0; /* Signal */
+      --accent-3: #d9a054; /* Stress */
+      --text-main: #ffffff;
+      --text-muted: rgba(255, 255, 255, 0.7);
+      --glass-bg: rgba(21, 19, 29, 0.6);
+      --glass-border: rgba(255, 255, 255, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, html {
+      height: 100%;
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      overflow: hidden;
+    }
+
+    /* Animated Background Orbs */
+    .bg-orbs {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      z-index: -1;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: float 20s infinite alternate;
+    }
+
+    .orb:nth-child(1) {
+      width: 500px;
+      height: 500px;
+      background: var(--accent-1);
+      top: -100px;
+      left: -100px;
+      animation-delay: 0s;
+    }
+
+    .orb:nth-child(2) {
+      width: 600px;
+      height: 600px;
+      background: var(--accent-2);
+      bottom: -200px;
+      right: -100px;
+      animation-delay: -5s;
+    }
+
+    .orb:nth-child(3) {
+      width: 400px;
+      height: 400px;
+      background: var(--accent-3);
+      top: 30%;
+      left: 40%;
+      opacity: 0.2;
+      animation-delay: -10s;
+    }
+
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -50px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
+
+    /* Presentation Container */
+    .slider-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: scale(0.95);
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1);
+    }
+
+    .slide.prev {
+      transform: translateX(-100%) scale(0.95);
+    }
+
+    .slide.next {
+      transform: translateX(100%) scale(0.95);
+    }
+
+    /* Glassmorphism Card */
+    .content-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 0;
+      padding: 40px 80px;
+      max-width: 100%;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-shadow: none;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .content-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2), var(--accent-3));
+    }
+
+    /* Typography */
+    h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3.5rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      background: linear-gradient(to right, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -1px;
+    }
+
+    h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 500;
+      margin-bottom: 15px;
+      color: var(--accent-1);
+    }
+
+    p {
+      font-size: 1.2rem;
+      line-height: 1.6;
+      color: var(--text-muted);
+      margin-bottom: 25px;
+    }
+
+    /* Slide Specifics */
+    
+    /* Slide 1: Team */
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 30px;
+      margin-top: 40px;
+    }
+    
+    .team-member {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 25px;
+      text-align: center;
+      transition: transform 0.3s ease, background 0.3s ease;
+    }
+
+    .team-member:hover {
+      transform: translateY(-5px);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .team-member .avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-2), var(--accent-3));
+      margin: 0 auto 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+
+    .team-member h3 {
+      font-size: 1.2rem;
+      margin-bottom: 5px;
+    }
+
+    .team-member p {
+      font-size: 0.9rem;
+      margin-bottom: 0;
+      color: var(--accent-1);
+    }
+
+    /* Slide 2 & 3: Paper & Points */
+    .paper-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .paper-screenshot {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      aspect-ratio: 4/5;
+      background: rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .paper-screenshot img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .placeholder-text {
+      position: absolute;
+      color: var(--text-muted);
+      font-family: 'Space Grotesk';
+      text-align: center;
+      padding: 20px;
+    }
+
+    ul.custom-list {
+      list-style: none;
+      margin-top: 20px;
+    }
+
+    ul.custom-list li {
+      position: relative;
+      padding-left: 35px;
+      margin-bottom: 25px;
+      font-size: 1.15rem;
+      line-height: 1.5;
+      color: var(--text-main);
+    }
+
+    ul.custom-list li::before {
+      content: '✦';
+      position: absolute;
+      left: 0;
+      top: 2px;
+      color: var(--accent-2);
+      font-size: 1.2rem;
+    }
+
+    ul.custom-list li strong {
+      color: var(--accent-1);
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    /* Slide 4: The Project */
+    .project-highlight {
+      display: inline-block;
+      padding: 8px 16px;
+      background: rgba(140, 158, 224, 0.15);
+      border: 1px solid rgba(140, 158, 224, 0.3);
+      border-radius: 100px;
+      color: var(--accent-2);
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 30px;
+    }
+
+    .comp-box {
+      background: rgba(0,0,0,0.2);
+      border-radius: 16px;
+      padding: 25px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .comp-box h4 {
+      font-family: 'Space Grotesk';
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .comp-box.ambient h4 {
+      color: var(--accent-2);
+    }
+
+    /* Controls */
+    .controls {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 15px;
+      z-index: 10;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      padding: 10px 20px;
+      border-radius: 100px;
+      border: 1px solid var(--glass-border);
+    }
+
+    .btn {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.3s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .indicators {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: all 0.3s;
+    }
+
+    .dot.active {
+      background: var(--accent-2);
+      transform: scale(1.5);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .paper-layout, .comparison-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 { font-size: 2.5rem; }
+      .content-card { padding: 30px; height: 100vh; overflow-y: auto; }
+      .paper-screenshot { max-height: 200px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Animated Elements -->
+  <div class="bg-orbs">
+    <div class="orb"></div>
+    <div class="orb"></div>
+    <div class="orb"></div>
+  </div>
+
+  <div class="slider-container" id="slider">
+    
+    <!-- Slide 1: Team Introduction -->
+    <div class="slide active">
+      <div class="content-card">
+        <h1>Meet the Team</h1>
+        <p>We are the creators of <strong>Aura AI</strong> — a background layer that notices, quietly. We believe in designing interfaces that adapt to human emotion rather than demanding constant attention.</p>
+        
+        <div class="team-grid">
+          <!-- You can customize team members here -->
+          <div class="team-member">
+            <div class="avatar">S</div>
+            <h3>Sharique</h3>
+            <p>ERP: 28369</p>
+          </div>
+          <div class="team-member">
+            <div class="avatar">M</div>
+            <h3>Maira</h3>
+            <p>ERP: 28552</p>
+          </div>
+          <div class="team-member">
+            <div class="avatar">B</div>
+            <h3>Barkhi</h3>
+            <p>ERP: 29261</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 2: Paper Intro -->
+    <div class="slide">
+      <div class="content-card">
+        <div class="project-highlight">The Research Foundation</div>
+        <div class="paper-layout">
+          <div>
+            <h2>Emotional Stability Assessment through Keyboard Typing: A Survey</h2>
+            <p style="font-size: 1rem; margin-bottom: 5px;"><strong>Authors:</strong> S. Daniel, R. Indujadevi, P.V. M. Kumar, S. Srija</p>
+            <p style="font-size: 0.9rem; color: var(--accent-1);">IJMRSET | Volume 9, Issue 3, March 2026</p>
+            <br>
+            <p>This paper introduces an innovative paradigm in affective computing. By analyzing how a person types on a standard keyboard, it establishes a reliable, non-intrusive method for assessing emotional stability without the need for cameras or specialized wearables.</p>
+          </div>
+          <div class="paper-screenshot">
+            <!-- USER: Replace the src with the path to your screenshot -->
+            <img src="paper screenshot.png" alt="Paper Screenshot">
+            <div class="placeholder-text" style="display: none;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 10px; opacity: 0.5;">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg><br>
+              Insert Paper<br>Screenshot Here
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 3: Problem Statement -->
+    <div class="slide">
+      <div class="content-card">
+        <h1>The Problem with Traditional Emotion Detection</h1>
+        <p>Before relying on keystroke dynamics, detecting user stress required intrusive methods:</p>
+        <ul class="custom-list">
+          <li><strong>Facial Recognition & Voice Analysis:</strong> Feels invasive to privacy and often requires active cameras or microphones.</li>
+          <li><strong>Physiological Sensors (EEG, Heart Rate):</strong> Requires costly external wearables and hardware that users are unlikely to wear while working.</li>
+          <li><strong>The Solution:</strong> The paper proposes using standard PC keyboards. It's cheap, non-intrusive, and highly effective for continuous monitoring in realistic applications like desk work.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Slide 4: Methodology -->
+    <div class="slide">
+      <div class="content-card">
+        <h1>Methodology: Feature Extraction</h1>
+        <p>The paper extracted several behavioral features from typing patterns to classify emotions (Sad, Happy, Calm, Anxious, Angry):</p>
+        <div class="comparison-grid">
+          <div class="comp-box">
+            <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Dwell Time (Key Hold Time)</h4>
+            <p style="font-size: 0.95rem;">The time a key is held down before release. Variations here heavily indicate hesitation or frustration.</p>
+          </div>
+          <div class="comp-box">
+            <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> Latency (Flight Time)</h4>
+            <p style="font-size: 0.95rem;">The timing between two consecutive presses. This measures typing cadence.</p>
+          </div>
+          <div class="comp-box">
+            <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> Typing Speed</h4>
+            <p style="font-size: 0.95rem;">Total characters typed in a fixed time. Sudden drops signify emotional shifts.</p>
+          </div>
+          <div class="comp-box">
+            <h4><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg> Error Rates (Backspaces)</h4>
+            <p style="font-size: 0.95rem;">Frequent deletions can indicate stress, distraction, or high mental load.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 5: Machine Learning Models -->
+    <div class="slide">
+      <div class="content-card">
+        <h1>Machine Learning Models Used</h1>
+        <p>The extracted features were fed into three distinct machine learning models to classify the emotional state of the user:</p>
+        <ul class="custom-list">
+          <li><strong>K-Nearest Neighbors (KNN):</strong> A simple instance-based learning algorithm, but struggled with noise and high-dimensional data.</li>
+          <li><strong>Multi-Layer Perceptron (MLP):</strong> An artificial neural network that successfully modeled complex, non-linear typing patterns.</li>
+          <li><strong>XGBoost (Extreme Gradient Boosting):</strong> An ensemble learning method using sequential decision trees. It excelled at feature interactions and reducing overfitting.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Slide 6: Results of the Paper -->
+    <div class="slide">
+      <div class="content-card">
+        <h1>Paper Results & Findings</h1>
+        <p>The experimental results proved that keystroke dynamics are highly efficient for emotion recognition:</p>
+        <ul class="custom-list">
+          <li><strong>XGBoost was the Winner:</strong> It achieved the highest accuracy and precision among all tested models, especially on structured tabular data.</li>
+          <li><strong>Feature Importance:</strong> Dwell time and flight time were the most influential factors in driving the prediction.</li>
+          <li><strong>Emotion Overlap:</strong> The confusion matrix showed "calm" and "happy" were classified very well, though "anxious" and "angry" occasionally overlapped due to similar erratic typing styles.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Slide 7: Limitations of the Paper -->
+    <div class="slide">
+      <div class="content-card">
+        <h1>Limitations of the Study</h1>
+        <p>While the paper established a great foundation, it had a few limitations that inspired our project:</p>
+        <ul class="custom-list">
+          <li><strong>Passive Assessment:</strong> The system accurately classified emotions, but stopped there. It did not use this data to actively help the user in real-time.</li>
+          <li><strong>Pre-defined Dataset:</strong> The models were tested on fixed, pre-existing datasets rather than real-world, free-text typing scenarios.</li>
+          <li><strong>Individual Variability:</strong> Different people have distinct baseline typing speeds, meaning a one-size-fits-all model might misclassify emotions without personalization.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Slide 8: Our Project (Expansion) -->
+    <div class="slide">
+      <div class="content-card">
+        <div class="project-highlight">Our Evolution: Aura AI</div>
+        <h1>From Assessment to Intervention</h1>
+        <p>The paper successfully <strong>detected</strong> emotions. We took this a step further. We built <strong>Aura AI</strong> — a system that not only assesses emotional states through typing pacing, but actively <strong>adapts the environment</strong> to support the user.</p>
+        
+        <div class="comparison-grid">
+          <div class="comp-box">
+            <h4>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+              The Paper (Assessment)
+            </h4>
+            <p style="font-size: 0.95rem;">• Focuses on detecting the emotion.<br>• Outputs a real-time prediction.<br>• Ends at data analysis and classification.</p>
+          </div>
+          
+          <div class="comp-box ambient">
+            <h4>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              Aura AI (Active Intervention)
+            </h4>
+            <p style="font-size: 0.95rem;">• Uses detection as a trigger mechanism.<br>• <strong>Contextual UI Modulation:</strong> Adjusts screen brightness and feed blur automatically.<br>• <strong>Pacing Control:</strong> Delays non-urgent notifications during high stress.<br>• <strong>Proactive Support:</strong> Triggers LLM-driven breathing exercises gently.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 9: Aura AI Features -->
+    <div class="slide">
+      <div class="content-card" style="padding: 30px 60px;">
+        <h1 style="margin-bottom: 5px;">Aura AI Core Features</h1>
+        <p style="margin-bottom: 25px; font-size: 1.1rem;">When our background layer detects high stress or anxiety from your keystrokes, it alters your workspace to help you focus:</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+          <!-- Left Column: Feature 1 & 2 -->
+          <div style="display: flex; flex-direction: column; gap: 25px;">
+            <div class="comp-box" style="display: flex; flex-direction: column; padding: 25px; flex-grow: 1; justify-content: center;">
+              <h4 style="color: var(--accent-1); margin-bottom: 10px; font-size: 1.1rem;">Visual Calming</h4>
+              <p style="font-size: 0.95rem; margin-bottom: 0;">Screen brightness gently lowers, and non-essential background feeds blur out to remove distractions.</p>
+            </div>
+
+            <div class="comp-box" style="display: flex; flex-direction: column; padding: 25px; flex-grow: 1; justify-content: center;">
+              <h4 style="color: var(--accent-1); margin-bottom: 10px; font-size: 1.1rem;">Notification Buffering</h4>
+              <p style="font-size: 0.95rem; margin-bottom: 0;">Incoming notifications are muted or delayed until your typing cadence returns to a calm baseline.</p>
+            </div>
+          </div>
+
+          <!-- Right Column: Feature 3 (Video) -->
+          <div class="comp-box" style="display: flex; flex-direction: column; padding: 25px; justify-content: center;">
+            <div style="width: 100%; flex-grow: 1; min-height: 200px; background: rgba(0,0,0,0.4); border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 1px dashed rgba(255,255,255,0.2); overflow: hidden; position: relative;">
+              <!-- USER: Add your video or gif src here -->
+              <video src="breathing demo.mp4" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover; display: none;" onloadeddata="this.style.display='block'; this.nextElementSibling.style.display='none'"></video>
+              <div style="color: var(--text-muted); font-size: 0.85rem; text-align: center;">Guided Breathing<br>Video / GIF Here</div>
+            </div>
+            <h4 style="color: var(--accent-1); margin-bottom: 10px; font-size: 1.1rem;">Guided Breathing</h4>
+            <p style="font-size: 0.95rem; margin-bottom: 0;">A breathing exercise orb gently expands and contracts, encouraging you to match its rhythm.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Slide 10: Conclusion -->
+    <div class="slide">
+      <div class="content-card">
+        <h1>Conclusion</h1>
+        <p>By building upon the keystroke dynamics research, <strong>Aura AI</strong> demonstrates the future of affective computing and Human-Computer Interaction.</p>
+        <p>We are shifting from software that simply <strong>observes</strong> to software that <strong>empathizes</strong> and <strong>acts</strong>. Aura AI is an invisible companion that supports your mental well-being in the background, exactly when you need it.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Navigation Controls -->
+  <div class="controls">
+    <button class="btn" id="prevBtn" title="Previous Slide">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div class="indicators" id="indicators">
+      <!-- Dots will be injected here by JS -->
+    </div>
+    <button class="btn" id="nextBtn" title="Next Slide">
+      <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const slides = document.querySelectorAll('.slide');
+      const indicatorsContainer = document.getElementById('indicators');
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      let currentSlide = 0;
+
+      // Create dots dynamically
+      slides.forEach((_, i) => {
+        const dot = document.createElement('div');
+        dot.className = i === 0 ? 'dot active' : 'dot';
+        dot.addEventListener('click', () => {
+          currentSlide = i;
+          updateSlides();
+        });
+        indicatorsContainer.appendChild(dot);
+      });
+
+      const dots = document.querySelectorAll('.dot');
+
+      function updateSlides() {
+        slides.forEach((slide, index) => {
+          slide.classList.remove('active', 'prev', 'next');
+          dots[index].classList.remove('active');
+          
+          if (index === currentSlide) {
+            slide.classList.add('active');
+            dots[index].classList.add('active');
+          } else if (index < currentSlide) {
+            slide.classList.add('prev');
+          } else {
+            slide.classList.add('next');
+          }
+        });
+      }
+
+      // Initialize slide positions
+      updateSlides();
+
+      nextBtn.addEventListener('click', () => {
+        if (currentSlide < slides.length - 1) {
+          currentSlide++;
+          updateSlides();
+        }
+      });
+
+      prevBtn.addEventListener('click', () => {
+        if (currentSlide > 0) {
+          currentSlide--;
+          updateSlides();
+        }
+      });
+
+      // Keyboard navigation
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          if (currentSlide < slides.length - 1) {
+            currentSlide++;
+            updateSlides();
+          }
+        } else if (e.key === 'ArrowLeft') {
+          if (currentSlide > 0) {
+            currentSlide--;
+            updateSlides();
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
