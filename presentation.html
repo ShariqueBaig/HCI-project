@@ -240,14 +240,13 @@
 
     .paper-screenshot {
       width: 100%;
-      height: auto;
+      height: 65vh;
       border-radius: 12px;
-      border: 1px solid var(--glass-border);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-      aspect-ratio: 4/5;
-      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      background: #ffffff;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       position: relative;
       overflow: hidden;
@@ -256,7 +255,8 @@
     .paper-screenshot img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
+      object-position: top;
     }
 
     .placeholder-text {
@@ -301,6 +301,8 @@
     /* Slide 4: The Project */
     .project-highlight {
       display: inline-block;
+      align-self: flex-start;
+      width: fit-content;
       padding: 8px 16px;
       background: rgba(140, 158, 224, 0.15);
       border: 1px solid rgba(140, 158, 224, 0.3);
@@ -426,28 +428,31 @@
 
   <div class="slider-container" id="slider">
     
-    <!-- Slide 1: Team Introduction -->
+    <!-- Slide 1: Title Card & Team -->
     <div class="slide active">
-      <div class="content-card">
-        <h1>Meet the Team</h1>
-        <p>We are the creators of <strong>Aura UI</strong> — a background layer that notices, quietly. We believe in designing interfaces that adapt to human emotion rather than demanding constant attention.</p>
+      <div class="content-card" style="text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 60px;">
+        <div class="project-highlight" style="margin-bottom: 25px; align-self: center;">HCI Presentation</div>
+        <h1 style="font-size: 5rem; margin-bottom: 20px; background: linear-gradient(135deg, #ffffff, var(--accent-1)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none;">Aura UI</h1>
+        <p style="font-size: 1.4rem; margin-bottom: 60px; color: var(--text-muted); max-width: 800px; text-align: center; line-height: 1.6;">A background layer that reads typing behaviour and quietly adjusts your workspace to support your mental well-being.</p>
         
-        <div class="team-grid">
-          <!-- You can customize team members here -->
-          <div class="team-member">
-            <div class="avatar">S</div>
-            <h3>Sharique</h3>
-            <p>ERP: 28369</p>
-          </div>
-          <div class="team-member">
-            <div class="avatar">M</div>
-            <h3>Maira</h3>
-            <p>ERP: 28552</p>
-          </div>
-          <div class="team-member">
-            <div class="avatar">B</div>
-            <h3>Barkhi</h3>
-            <p>ERP: 29261</p>
+        <div style="width: 100%; max-width: 900px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 40px;">
+          <h3 style="color: var(--text-muted); margin-bottom: 30px; font-family: 'Space Grotesk'; font-weight: 400; font-size: 1.1rem; letter-spacing: 2px; text-transform: uppercase;">The Team</h3>
+          <div class="team-grid" style="grid-template-columns: repeat(3, 1fr); gap: 30px;">
+            <div class="team-member" style="background: rgba(0,0,0,0.2); text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+              <div class="avatar" style="margin: 0 auto 15px auto;">S</div>
+              <h3>Sharique</h3>
+              <p style="color: var(--accent-1);">ERP: 28369</p>
+            </div>
+            <div class="team-member" style="background: rgba(0,0,0,0.2); text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+              <div class="avatar" style="margin: 0 auto 15px auto;">M</div>
+              <h3>Maira</h3>
+              <p style="color: var(--accent-1);">ERP: 28552</p>
+            </div>
+            <div class="team-member" style="background: rgba(0,0,0,0.2); text-align: center; border: 1px solid rgba(255,255,255,0.05);">
+              <div class="avatar" style="margin: 0 auto 15px auto;">B</div>
+              <h3>Barkhi</h3>
+              <p style="color: var(--accent-1);">ERP: 29261</p>
+            </div>
           </div>
         </div>
       </div>
