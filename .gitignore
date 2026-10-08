@@ -1,0 +1,10 @@
+secrets.json
+.cache
+__pycache__/
+*.pyc
+settings.json
+
+# PyInstaller build files
+build/
+dist/
+*.spec
