@@ -14,16 +14,16 @@
    *Any changes to the code can be tested instantly by closing the app and re-running this command.*
 
 ## Secrets & Spotify Integration
-To enable the Spotify volume auto-lowering features, you need a `secrets.json` file in the root directory. This file is intentionally ignored by git to keep your API keys secure. 
+To enable the Spotify volume auto-lowering feature, you must configure your own Spotify API keys.
 
-Format for `secrets.json`:
-```json
-{
-  "spotify_client_id": "YOUR_ID",
-  "spotify_client_secret": "YOUR_SECRET",
-  "spotify_redirect_uri": "http://localhost:8080"
-}
-```
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
+2. Click **Create app**. Give it a name and description.
+3. For the **Redirect URI**, enter EXACTLY: `http://localhost:8080`
+4. Go to the App's **Settings** to find your **Client ID** and **Client Secret**.
+5. In this project folder, rename the included `secrets.example.json` file to `secrets.json`.
+6. Open `secrets.json` and paste in your Client ID and Client Secret.
+
+*(Note: `secrets.json` is automatically ignored by git so your private keys are never uploaded to the internet.)*
 
 ## Exporting the `.exe` (Building)
 
