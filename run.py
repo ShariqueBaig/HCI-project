@@ -17,16 +17,13 @@ except Exception:
         pass
 
 if getattr(sys, 'frozen', False):
-    APP_DIR = sys._MEIPASS
     DATA_DIR = os.path.dirname(sys.executable)
 else:
-    APP_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATA_DIR = APP_DIR
+    DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 
-sys.path.insert(0, os.path.join(APP_DIR, 'backend'))
-from telemetry_daemon import TelemetryDaemon
-from os_controller import OSController
-from spotify_controller import SpotifyController
+from backend.telemetry_daemon import TelemetryDaemon
+from backend.os_controller import OSController
+from backend.spotify_controller import SpotifyController
 
 try:
     import pystray
