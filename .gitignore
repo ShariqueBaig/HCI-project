@@ -10,3 +10,10 @@ dist/
 *.spec
 journal.json
 session_log_*.csv
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk

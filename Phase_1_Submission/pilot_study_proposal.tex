@@ -1,0 +1,167 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+% Custom Styling & Metadata
+\hypersetup{
+    colorlinks=true,
+    linkcolor=teal!80!black,
+    citecolor=teal!80!black,
+    urlcolor=blue!70!black
+}
+
+\titleformat{\section}{\large\bfseries\color{teal!80!black}}{\thesection}{1em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small \textbf{Human-Computer Interaction (HCI)}}
+\rhead{\small Aura UI — Pilot Study \& Running Prototype}
+\cfoot{\thepage}
+
+\title{
+    \vspace{-1.5cm}
+    \textbf{\Large Aura UI: Ambient Stress Sensing and Peripheral Micro-Interventions} \\
+    \large Pilot Study Proposal, Running Prototype Verification, \& Experimental Plan
+}
+
+\author{
+    \textbf{Course:} Human-Computer Interaction (HCI) \\[0.15cm]
+    \textbf{Institution:} Institute of Business Administration (IBA) \\[0.3cm]
+    \textbf{Team Members:} \\[0.1cm]
+    Sharique Baig \quad $\cdot$ \quad Maira Aijaz \quad $\cdot$ \quad Barkhi Khan
+}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+
+\begin{abstract}
+Traditional digital stress management applications frequently rely on intrusive modal alerts, disrupting task immersion and amplifying cognitive friction. In this project, we introduce \textbf{Aura UI}, an ambient desktop affective computing system that passively infers real-time cognitive strain and user frustration through peripheral behavioral micro-telemetry (keystroke dynamics and mouse jitter). Rather than jarring interruptions, Aura UI employs graduated calm technology: soothing ambient display modulation (brightness and color temperature), smooth acoustic volume adjustments, an intelligent notification gatekeeper, on-demand physiological sighing breathwork, and privacy-preserving post-session LLM reflections. This document presents the verified running prototype through empirical visual UI evidence, alongside a structured experimental pilot plan to evaluate its impact on cognitive workload and task recovery.
+\end{abstract}
+
+\section{System Purpose \& HCI Foundation}
+Aura UI is built upon the paradigm of \textbf{Calm Technology} (Weiser \& Brown) and \textbf{Peripheral Affective Computing}:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+    \item \textbf{Implicit Passive Sensing:} User state is derived non-invasively without video monitoring or wearable sensors, analyzing rolling-window keystroke Coefficient of Variation ($\text{CoV} = \sigma_{\text{flight}} / \mu_{\text{flight}}$), dwell duration, error/backspace bursts, and mouse trajectory velocity/agitation.
+    \item \textbf{Graduated Micro-Interventions:}
+    \begin{itemize}[leftmargin=1.2em, itemsep=1pt]
+        \item \textit{Tier 0 (Calm, Score 0--29):} Full display luminance, cool color temperature, standard notification dispatch.
+        \item \textit{Tier 1 (Mild, Score 30--59):} Subtle screen backlight dimming, smooth color temperature shift toward warm Kelvin spectra, gentle Spotify volume attenuation.
+        \item \textit{Tier 2 (Elevated, Score 60--100):} Focus Assist/DND notification suppression, an interactive physiological sighing guide (double inhale, slow exhale), and proactive empathetic co-regulation.
+    \end{itemize}
+    \item \textbf{Privacy by Design:} Keystroke textual content is never inspected, stored, or transmitted; only anonymous aggregate numeric statistical indicators are processed.
+\end{itemize}
+
+\section{Running Application: Live Demonstration \& UI Evidence}
+The application is fully operational as a native desktop client (runnable via \texttt{python run.py} or standalone \texttt{AuraUI.exe}). The following figures demonstrate the running application across its complete operational cycle:
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=0.55\textwidth,max height=0.42\textheight,keepaspectratio]{{Aura UI pictue.png}}
+    \caption{\textbf{Running Aura UI Desktop Dashboard}: Dual-column ambient computing interface featuring the live circular stress dial, raw micro-telemetry metrics (typing speed, error rate, dwell, flight latency, mouse pixels), auto-brightness controls, Focus notification status, Spotify integration, and conversational Aura co-regulation.}
+    \label{fig:main_ui}
+    \vspace{0.4cm}
+
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=0.88\textwidth,max height=0.22\textheight,keepaspectratio]{{mild stress.png}}
+        \caption{\textbf{Tier 1 (Mild Stress, 48/100)}: Ambient dimming active and color temperature shifted to 5000K.}
+        \label{fig:mild_stress}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=0.88\textwidth,max height=0.22\textheight,keepaspectratio]{{elevated stress.png}}
+        \caption{\textbf{Tier 2 (Elevated Stress, 85/100)}: Focus mode blocking incoming alerts; screen warmed to 3500K.}
+        \label{fig:elev_stress}
+    \end{minipage}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{minipage}{0.46\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth,max height=0.26\textheight,keepaspectratio]{{breathing screen.png}}
+        \caption{\textbf{Physiological Sighing Intervention}: Animated breath guide triggered during sustained elevation.}
+        \label{fig:breathing}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.51\textwidth}
+        \centering
+        \includegraphics[width=\textwidth,max height=0.26\textheight,keepaspectratio]{{aura_session_chart_poster.png}}
+        \caption{\textbf{Session Telemetry Plot}: Real recorded session demonstrating Soothe, Prompt, and Recovery phases.}
+        \label{fig:session_chart}
+    \end{minipage}
+\end{figure}
+
+\newpage
+
+\section{Experimental Plan (Pilot Study)}
+
+\subsection{Research Question \& Hypotheses}
+\begin{itemize}[leftmargin=1.5em, itemsep=3pt]
+    \item \textbf{Research Question:} Does peripheral sensory attenuation coupled with an intelligent notification gatekeeper mitigate subjective frustration and attention fragmentation during high-cognitive-load desktop computing?
+    \item \textbf{H1 (Workload Reduction):} Participants working with active Aura UI interventions will report significantly lower perceived frustration on the NASA-TLX subscale relative to a baseline control.
+    \item \textbf{H2 (Attention Continuity):} Notification suppression during elevated stress episodes will significantly reduce task-switching latency and typing recovery time.
+    \item \textbf{H3 (User Acceptance):} Ambient sensory adjustments (screen dimming/warmth) will be perceived as significantly less disruptive than standard intrusive dialog notifications.
+\end{itemize}
+
+\subsection{Experimental Design \& Participants}
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+    \item \textbf{Design:} Within-subjects ($A/B$) counterbalanced study design to eliminate order and learning effects.
+    \item \textbf{Condition A (Control / Baseline):} Aura UI operates in passive logging mode (sensors record telemetry; no ambient screen shifts, no notification gating, no breath prompts).
+    \item \textbf{Condition B (Intervention / Aura Active):} Full ambient modulation, notification suppression during high stress, and physiological sighing availability.
+    \item \textbf{Sample Size:} $N = 8 \text{ to } 12$ university students/knowledge workers undergoing computer-centric analytical problem solving.
+\end{itemize}
+
+\subsection{Experimental Tasks (Standardized Cognitive Stressors)}
+Participants perform two equivalent 12-minute cognitively demanding knowledge tasks (counterbalanced across conditions):
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+    \item \textbf{Task Protocol:} Timed code debugging / textual synthesis with accuracy goals under temporal pressure.
+    \item \textbf{Distraction Injector:} Aura UI's built-in notification engine triggers controlled synthetic communication pings (e.g., Slack, Email, Calendar alerts) at fixed pseudo-random intervals.
+\end{itemize}
+
+\subsection{Evaluation Metrics \& Instruments}
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l p{4.6cm} X}
+\toprule
+\textbf{Metric Category} & \textbf{Data Source / Instrument} & \textbf{Measurement Target} \\
+\midrule
+\textbf{Objective Telemetry} & Aura CSV Logger (\texttt{session\_log\_*.csv}) & Typing CoV, error bursts, mouse jitter, total duration in Elevated tier, time-to-recovery (seconds back to Calm). \\
+\textbf{Notification Dynamics} & Session Statistics / Focus Queue & Volume of notifications suppressed vs. delivered; post-stress digest engagement. \\
+\textbf{Subjective Workload} & NASA-TLX (Task Load Index) & Mental demand, temporal demand, effort, and frustration ratings (0--100 scale). \\
+\textbf{System Usability} & System Usability Scale (SUS) & Overall usability, satisfaction, and perceived intrusiveness of peripheral cues. \\
+\textbf{Qualitative Insights} & Post-Study Semi-Structured Interview & User sentiment on physiological sighing and LLM reflection usefulness. \\
+\bottomrule
+\end{tabularx}
+\caption{Overview of Data Collection Metrics and Instruments.}
+\end{table}
+
+\subsection{Step-by-Step Pilot Procedure}
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt]
+    \item \textbf{Briefing \& Calibration (3 mins):} Transparent briefing confirming privacy preservation (keystroke content is neither observed nor stored). The user executes Aura's 30-second typing baseline calibration.
+    \item \textbf{Task Session 1 (12 mins):} Participant conducts Task 1 under assigned condition ($A$ or $B$) with active background telemetry logging.
+    \item \textbf{Mid-Study Assessment (3 mins):} Participant completes NASA-TLX for Session 1.
+    \item \textbf{Task Session 2 (12 mins):} Participant conducts Task 2 under the alternate condition (counterbalanced) with active telemetry logging.
+    \item \textbf{Post-Study Assessment \& Reflection (5 mins):} Participant completes NASA-TLX for Session 2, SUS questionnaire, and inspects the Aura Journal reflection.
+    \item \textbf{Comparative Analysis:} Telemetry logs are rendered using \texttt{plot\_session.py} to chart stress and sensory adaptation curves across both conditions.
+\end{enumerate}
+
+\end{document}
