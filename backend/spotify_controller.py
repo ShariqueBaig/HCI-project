@@ -32,6 +32,7 @@ class SpotifyController:
     def __init__(self):
         self._sp        = None
         self.available  = False
+        self.status     = 'Not connected'
         self._lock      = threading.Lock()
         self._init()
 
@@ -52,10 +53,13 @@ class SpotifyController:
             )
             self._sp       = spotipy.Spotify(auth_manager=auth)
             self.available = True
+            self.status    = 'Connected'
             print('[Spotify] Connected.')
         except FileNotFoundError:
+            self.status = 'secrets.json not found'
             print('[Spotify] secrets.json not found — music panel disabled.')
         except Exception as e:
+            self.status = f'init failed: {e}'
             print(f'[Spotify] init failed: {e}')
 
     # ------------------------------------------------------------------ read
@@ -80,7 +84,16 @@ class SpotifyController:
                 'is_playing': pb.get('is_playing', False),
                 'volume':     (pb.get('device') or {}).get('volume_percent', 50),
             }
-        except Exception:
+        except Exception as e:
+            msg = str(e)
+            if 'not registered' in msg.lower() or '403' in msg:
+                self.status = 'Account not added as tester in Spotify Dashboard'
+                self.available = False   # stop polling until re-init
+                print('[Spotify] 403 – your Spotify account must be added as a test user.')
+                print('[Spotify] Go to: developer.spotify.com/dashboard → your app → Settings → User Management')
+            else:
+                self.status = msg
+                print(f'[Spotify] current_track: {e}')
             return None
 
     # ------------------------------------------------------------------ control

@@ -8,3 +8,5 @@ settings.json
 build/
 dist/
 *.spec
+journal.json
+session_log_*.csv

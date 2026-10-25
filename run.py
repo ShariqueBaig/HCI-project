@@ -4,7 +4,7 @@ Aura UI -- background stress monitor
 Run: python run.py
   Opens the desktop widget
 """
-import sys, os, threading, time, json
+import sys, os, threading, time, json, csv, random
 import tkinter as tk
 
 try:
@@ -24,6 +24,8 @@ else:
 from backend.telemetry_daemon import TelemetryDaemon
 from backend.os_controller import OSController
 from backend.spotify_controller import SpotifyController
+from backend.llm_controller import LLMController, OPENER
+from backend import journal as journal_store
 
 try:
     import pystray
@@ -288,8 +290,91 @@ class BreathingPopup:
             pass
 
 
+class SessionStats:
+    """Aggregate numbers for the journal -- no keystroke content."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.start     = time.time()
+        self._last     = self.start
+        self.tier_s    = [0.0, 0.0, 0.0]
+        self._score_s  = 0.0
+        self._total_s  = 0.0
+        self.peak      = 0.0
+        self.peak_at   = 0.0
+        self.episodes  = 0
+        self._prev     = 0
+        self.breathing = 0
+        self.held      = 0
+        self.delivered = 0
+        self.demo      = False
+
+    def tick(self, score, tier, demo=False):
+        now = time.time()
+        dt = min(now - self._last, 2.0)
+        self._last = now
+        self.tier_s[tier] += dt
+        self._score_s += score * dt
+        self._total_s += dt
+        if score > self.peak:
+            self.peak, self.peak_at = score, now - self.start
+        if tier == 2 and self._prev != 2:
+            self.episodes += 1
+        self._prev = tier
+        self.demo = self.demo or demo
+
+    def summary(self):
+        return {'duration_s': time.time() - self.start,
+                'avg': self._score_s / self._total_s if self._total_s else 0.0,
+                'peak': self.peak, 'peak_at_s': self.peak_at,
+                'tier_s': list(self.tier_s), 'episodes': self.episodes,
+                'breathing': self.breathing, 'held': self.held,
+                'delivered': self.delivered, 'demo': self.demo}
+
+
+_toasts = []   # live toast windows, for stacking
+
+def show_toast(root, title, text, kind='delivered', ms=3800):
+    """Small always-on-top card, bottom-right. kind: delivered | blocked | digest."""
+    accent, tag = {'delivered': (CALM, 'Delivered'),
+                   'blocked':   (ELEV, 'Held back by Focus mode'),
+                   'digest':    (MILD, 'Focus summary')}[kind]
+    win = tk.Toplevel(root)
+    win.overrideredirect(True)
+    win.attributes('-topmost', True)
+    win.configure(bg=accent)
+    body = tk.Frame(win, bg=SURF)
+    body.pack(fill='both', expand=True, padx=(5, 0))
+    tk.Label(body, text=tag, bg=SURF, fg=accent,
+             font=('Arial', 7, 'bold')).pack(anchor='w', padx=10, pady=(6, 0))
+    tk.Label(body, text=title, bg=SURF, fg=TEXT if kind != 'blocked' else MUTED,
+             font=('Arial', 10, 'bold')).pack(anchor='w', padx=10)
+    tk.Label(body, text=text, bg=SURF, fg=MUTED, wraplength=270, justify='left',
+             font=('Arial', 9)).pack(anchor='w', padx=10, pady=(0, 8))
+    win.update_idletasks()
+    w, h = 300, win.winfo_reqheight()
+    sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
+    y = sh - 110 - sum(t.winfo_reqheight() + 8 for t in _toasts if t.winfo_exists()) - h
+    win.geometry('{}x{}+{}+{}'.format(w, h, sw - w - 20, max(20, y)))
+    _toasts.append(win)
+
+    def close():
+        try: win.destroy()
+        except Exception: pass
+        if win in _toasts: _toasts.remove(win)
+    win.after(ms, close)
+
+
 class AmbientApp:
     POLL_MS = 333
+    DEMO_NOTIFS = [('Slack', 'Ahmed: are you free for a quick call?'),
+                   ('Mail', 'Your order has shipped'),
+                   ('WhatsApp', 'Mum: dinner at 8?'),
+                   ('Calendar', 'Team meeting in 10 minutes'),
+                   ('Instagram', '12 new likes on your photo'),
+                   ('Teams', 'New message in #project-hci')]
 
     def __init__(self):
         self.settings       = Settings()
@@ -316,6 +401,30 @@ class AmbientApp:
         self._calib_start        = 0.0
         self.CALIB_DURATION      = 30.0  # seconds
         self._dnd_active         = False # tracks notification muting
+        # Focus mode / notifications / journal
+        self.stats               = SessionStats()
+        self._held               = []    # notifications held back while Elevated
+        self._notif_n            = 0
+        self._journal_win        = None
+        self._demo_stage_start   = 0.0
+        self._demo_fired         = 0
+        # Aura chat (OpenRouter)
+        self.llm                 = LLMController()
+        self._chat_gen           = 0     # bumped when a chat is dismissed/restarted
+        self._elevated_since     = None
+        self._last_checkin       = 0.0
+        # Demo mode (scripted presentation)
+        self._demo_target        = None   # stress score the demo is steering toward
+        self._demo_script        = []     # [(label, score, seconds, note)]
+        self._demo_idx           = -1
+        self._demo_end           = 0.0
+        self._demo_win           = None
+        self._demo_status        = None
+        self._demo_note          = None
+        # Session recording (CSV of numeric features only -- no keystroke content)
+        self._log_fh             = None
+        self._log_writer         = None
+        self._log_start          = 0.0
         self._build_window()
 
     # ------- window ----------------------------------------------------------
@@ -330,16 +439,23 @@ class AmbientApp:
         self.auto_bright = tk.BooleanVar(value=True)
         self.always_top  = tk.BooleanVar(value=False)
         self.always_top.trace_add('write', self._on_topmost)
+        # two columns so the whole app fits on a laptop screen
+        self._left  = tk.Frame(r, bg=BG)
+        self._right = tk.Frame(r, bg=BG, width=300)
+        self._left.pack(side='left', anchor='n')
+        tk.Frame(r, bg=BORDER, width=1).pack(side='left', fill='y', pady=14)
+        self._right.pack(side='left', anchor='n', fill='y')
         self._build_header()
         self._build_gauge()
         self._build_stats()
         self._build_controls()
+        self._build_focus()
         self._build_music()
         self._build_chat()
         r.geometry('+80+80')
 
     def _build_header(self):
-        row = tk.Frame(self.root, bg=BG)
+        row = tk.Frame(self._left, bg=BG)
         row.pack(fill='x', padx=20, pady=(14, 0))
         tk.Label(row, text='Aura UI', bg=BG, fg=TEXT,
                  font=('Georgia', 16)).pack(side='left')
@@ -349,15 +465,15 @@ class AmbientApp:
                        font=('Arial', 8), bd=0).pack(side='right', pady=4)
         self.dot = tk.Label(row, text='●', bg=BG, fg=CALM, font=('Arial', 10))
         self.dot.pack(side='right', pady=5, padx=2)
-        tk.Label(self.root, text='background stress monitor  ·  Aura UI',
+        tk.Label(self._left, text='background stress monitor  ·  Aura UI',
                  bg=BG, fg=MUTED, font=('Arial', 8)).pack(anchor='w', padx=20)
 
     def _build_gauge(self):
-        self.canvas = tk.Canvas(self.root, width=180, height=155,
+        self.canvas = tk.Canvas(self._left, width=180, height=155,
                                 bg=BG, highlightthickness=0)
         self.canvas.pack(pady=(10, 0))
         self._draw_gauge(0, CALM)
-        self.tier_lbl = tk.Label(self.root, text='Calm', bg=BG, fg=CALM,
+        self.tier_lbl = tk.Label(self._left, text='Calm', bg=BG, fg=CALM,
                                   font=('Georgia', 12, 'italic'))
         self.tier_lbl.pack(pady=(2, 8))
 
@@ -379,7 +495,7 @@ class AmbientApp:
         c.create_text(cx, cy+20, text='/ 100',         fill=MUTED, font=('Arial', 8))
 
     def _build_stats(self):
-        f = tk.Frame(self.root, bg=SURF,
+        f = tk.Frame(self._left, bg=SURF,
                      highlightbackground=BORDER, highlightthickness=1)
         f.pack(fill='x', padx=20, pady=(0, 8))
         self._sv = {}
@@ -397,20 +513,25 @@ class AmbientApp:
                      font=('Arial', 12, 'bold')).pack(anchor='w')
 
     def _build_controls(self):
-        row = tk.Frame(self.root, bg=BG)
+        row = tk.Frame(self._left, bg=BG)
         row.pack(fill='x', padx=20, pady=(0, 2))
         tk.Label(row, text='Brightness', bg=BG, fg=MUTED, font=('Arial', 8)).pack(side='left')
         self.bright_var = tk.StringVar(value='--')
         tk.Label(row, textvariable=self.bright_var, bg=BG, fg=TEXT,
                  font=('Arial', 8, 'bold')).pack(side='right')
 
-        row2 = tk.Frame(self.root, bg=BG)
+        row2 = tk.Frame(self._left, bg=BG)
         row2.pack(fill='x', padx=18, pady=(0, 6))
         tk.Checkbutton(row2, text='Auto-adjust brightness', variable=self.auto_bright,
                        bg=BG, fg=MUTED, selectcolor=SURF, activebackground=BG,
                        font=('Arial', 8)).pack(side='left')
+        self.record_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(row2, text='Record session', variable=self.record_var,
+                       command=self._toggle_record,
+                       bg=BG, fg=MUTED, selectcolor=SURF, activebackground=BG,
+                       font=('Arial', 8)).pack(side='right')
 
-        btn_row = tk.Frame(self.root, bg=BG)
+        btn_row = tk.Frame(self._left, bg=BG)
         btn_row.pack(fill='x', padx=20, pady=(0, 4))
         self.sim_btn = tk.Button(btn_row, text='Simulate Stress',
                                   command=self._simulate,
@@ -418,6 +539,11 @@ class AmbientApp:
                                   font=('Arial', 9), activebackground=BORDER,
                                   activeforeground=ELEV, cursor='hand2', pady=4)
         self.sim_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
+        tk.Button(btn_row, text='Demo',
+                  command=self._open_demo,
+                  bg=SURF, fg=CALM, relief='flat',
+                  font=('Arial', 9), activebackground=BORDER,
+                  activeforeground=TEXT, cursor='hand2', pady=4).pack(side='right', padx=(0, 4))
         tk.Button(btn_row, text='Settings',
                   command=self._open_settings,
                   bg=SURF, fg=MUTED, relief='flat',
@@ -425,7 +551,7 @@ class AmbientApp:
                   activeforeground=TEXT, cursor='hand2', pady=4).pack(side='right')
 
         # Calibration row
-        cal_row = tk.Frame(self.root, bg=BG)
+        cal_row = tk.Frame(self._left, bg=BG)
         cal_row.pack(fill='x', padx=20, pady=(0, 10))
         calib_color = MUTED if self.settings['is_calibrated'] else ELEV
         self._calib_btn = tk.Button(cal_row, text='Calibrate',
@@ -439,6 +565,388 @@ class AmbientApp:
                                    fg=MUTED if self.settings['is_calibrated'] else ELEV,
                                    font=('Arial', 8))
         self._calib_lbl.pack(side='right')
+
+    # ------- focus mode ------------------------------------------------------
+
+    def _build_focus(self):
+        tk.Frame(self._right, bg=BORDER, height=1).pack(fill='x', padx=20, pady=(2, 6))
+        wrap = tk.Frame(self._right, bg=BG)
+        wrap.pack(fill='x', padx=20, pady=(0, 4))
+        self.focus_mode = tk.BooleanVar(value=True)
+        top = tk.Frame(wrap, bg=BG)
+        top.pack(fill='x')
+        tk.Checkbutton(top, text='Focus mode', variable=self.focus_mode,
+                       bg=BG, fg=TEXT, selectcolor=SURF, activebackground=BG,
+                       font=('Arial', 9, 'bold')).pack(side='left')
+        self._focus_state = tk.Label(top, text='standing by', bg=BG, fg=MUTED,
+                                     font=('Arial', 8))
+        self._focus_state.pack(side='right')
+        tk.Label(wrap, text='Holds back notifications while stress is Elevated, '
+                 'then shows a summary when you calm down.',
+                 bg=BG, fg=FAINT, font=('Arial', 7), wraplength=250,
+                 justify='left').pack(anchor='w')
+        row = tk.Frame(wrap, bg=BG)
+        row.pack(fill='x', pady=(4, 0))
+        self._notif_lbl = tk.Label(row, text='Delivered 0  ·  Held back 0', bg=BG,
+                                   fg=MUTED, font=('Arial', 8))
+        self._notif_lbl.pack(side='left')
+        tk.Button(row, text='Journal', command=self._open_journal, bg=SURF, fg=CALM,
+                  relief='flat', font=('Arial', 8), activebackground=BORDER,
+                  cursor='hand2').pack(side='right')
+        tk.Button(row, text='Test notification', command=self._send_test_notif, bg=SURF,
+                  fg=MUTED, relief='flat', font=('Arial', 8), activebackground=BORDER,
+                  cursor='hand2').pack(side='right', padx=(0, 4))
+
+    def _blocking(self):
+        return self.focus_mode.get() and self.engine.tier == 2
+
+    def notify(self, app, text):
+        """A (simulated) incoming notification: held back in focus mode, else delivered."""
+        if self._blocking():
+            self._held.append(app)
+            self.stats.held += 1
+            show_toast(self.root, app, text, 'blocked')
+        else:
+            self.stats.delivered += 1
+            show_toast(self.root, app, text, 'delivered')
+        self._update_notif_lbl()
+
+    def _send_test_notif(self):
+        app, text = self.DEMO_NOTIFS[self._notif_n % len(self.DEMO_NOTIFS)]
+        self._notif_n += 1
+        self.notify(app, text)
+
+    def _update_notif_lbl(self):
+        self._notif_lbl.config(text='Delivered {}  ·  Held back {}'.format(
+            self.stats.delivered, self.stats.held))
+
+    def _release_held(self):
+        n = len(self._held)
+        if n:
+            names = ', '.join(dict.fromkeys(self._held))
+            show_toast(self.root, '{} notification{} held back'.format(n, '' if n == 1 else 's'),
+                       'While you were stressed: ' + names, 'digest', ms=6000)
+        self._held = []
+
+    def _start_breathing(self):
+        self._last_popup_time = time.time()
+        self._breathing_popup = BreathingPopup(self.root)
+        self.stats.breathing += 1
+
+    # ------- journal ---------------------------------------------------------
+
+    def _open_journal(self):
+        if self._journal_win and self._journal_win.winfo_exists():
+            self._journal_win.lift()
+            return
+        win = tk.Toplevel(self.root)
+        win.title('Aura UI  -  Journal')
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        self._journal_win = win
+        tk.Label(win, text='Session journal', bg=BG, fg=TEXT,
+                 font=('Georgia', 13)).pack(anchor='w', padx=16, pady=(14, 0))
+        self._j_stats = tk.Label(win, text='', bg=BG, fg=MUTED, justify='left',
+                                 font=('Arial', 8))
+        self._j_stats.pack(anchor='w', padx=16, pady=(2, 8))
+
+        tk.Label(win, text='How did this session feel? (optional)', bg=BG, fg=MUTED,
+                 font=('Arial', 8)).pack(anchor='w', padx=16)
+        tk_kw = dict(bg=SURF, fg=TEXT, relief='flat', wrap='word', font=('Arial', 9),
+                     highlightbackground=BORDER, highlightthickness=1, padx=8, pady=6,
+                     insertbackground=TEXT)
+        self._j_note = tk.Text(win, height=3, width=48, **tk_kw)
+        self._j_note.pack(padx=16, pady=(2, 8))
+
+        btns = tk.Frame(win, bg=BG)
+        btns.pack(fill='x', padx=16)
+        self._j_reflect_btn = tk.Button(btns, text='Reflect with Aura', command=self._journal_reflect,
+                                        bg=SURF, fg=CALM, relief='flat', font=('Arial', 9),
+                                        activebackground=BORDER, cursor='hand2', pady=4)
+        self._j_reflect_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
+        tk.Button(btns, text='Save entry', command=self._journal_save, bg=SURF, fg=TEXT,
+                  relief='flat', font=('Arial', 9), activebackground=BORDER,
+                  cursor='hand2', pady=4).pack(side='left', fill='x', expand=True)
+
+        self._j_refl = tk.Text(win, height=6, width=48, state='disabled', **tk_kw)
+        self._j_refl.pack(padx=16, pady=(8, 8))
+
+        tk.Frame(win, bg=BORDER, height=1).pack(fill='x', padx=16)
+        tk.Label(win, text='Past entries', bg=BG, fg=MUTED, font=('Arial', 8)
+                 ).pack(anchor='w', padx=16, pady=(6, 2))
+        self._j_list = tk.Listbox(win, height=4, bg=SURF, fg=TEXT, relief='flat',
+                                  selectbackground=BORDER, highlightthickness=1,
+                                  highlightbackground=BORDER, font=('Arial', 9),
+                                  exportselection=False)
+        self._j_list.pack(fill='x', padx=16)
+        self._j_list.bind('<<ListboxSelect>>', self._journal_view)
+        tk.Button(win, text='Close', command=win.destroy, bg=SURF, fg=MUTED, relief='flat',
+                  font=('Arial', 9), activebackground=BORDER, cursor='hand2',
+                  pady=4).pack(fill='x', padx=16, pady=(10, 14))
+
+        self._journal_entries = []
+        self._j_reflection = ''
+        self._journal_refresh()
+        win.geometry('+{}+{}'.format(self.root.winfo_x() + self.root.winfo_width() + 8,
+                                     self.root.winfo_y()))
+
+    def _journal_set_refl(self, text):
+        self._j_refl.config(state='normal')
+        self._j_refl.delete('1.0', 'end')
+        self._j_refl.insert('1.0', text)
+        self._j_refl.config(state='disabled')
+
+    def _journal_refresh(self):
+        self._j_stats.config(text=journal_store.stats_text(self.stats.summary()))
+        self._journal_entries = journal_store.load()
+        self._j_list.delete(0, 'end')
+        for e in reversed(self._journal_entries):
+            self._j_list.insert('end', '{}  ·  peak {:.0f}  ·  {}{}'.format(
+                e.get('time', '?'), e['stats']['peak'],
+                journal_store.fmt_duration(e['stats']['duration_s']),
+                '  (demo)' if e['stats'].get('demo') else ''))
+
+    def _journal_reflect(self):
+        s = self.stats.summary()
+        note = self._j_note.get('1.0', 'end')
+        self._j_reflect_btn.config(state='disabled', text='Aura is writing...')
+        self._journal_set_refl('')
+
+        def work():
+            try:
+                text = self.llm.generate(journal_store.reflect_prompt(s, note),
+                                         journal_store.REFLECT_SYSTEM)
+            except Exception as e:
+                print('[Aura UI] reflection fallback:', e)
+                text = journal_store.local_reflection(s)
+            def done():
+                if not (self._journal_win and self._journal_win.winfo_exists()):
+                    return
+                self._j_reflection = text
+                self._journal_set_refl(text)
+                self._j_reflect_btn.config(state='normal', text='Reflect with Aura')
+            self.root.after(0, done)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _journal_save(self):
+        s = self.stats.summary()
+        entry = {'time': time.strftime('%d %b %H:%M'), 'stats': s,
+                 'note': self._j_note.get('1.0', 'end').strip(),
+                 'reflection': self._j_reflection or journal_store.local_reflection(s)}
+        try:
+            journal_store.add(entry)
+        except OSError as e:
+            print('[Aura UI] could not save journal:', e)
+            return
+        self.stats.reset()
+        self._update_notif_lbl()
+        self._j_note.delete('1.0', 'end')
+        self._j_reflection = ''
+        self._journal_set_refl('Saved. A fresh session has started.')
+        self._journal_refresh()
+
+    def _journal_view(self, _event=None):
+        sel = self._j_list.curselection()
+        if not sel:
+            return
+        e = list(reversed(self._journal_entries))[sel[0]]
+        text = e['reflection']
+        if e.get('note'):
+            text = 'Your note: ' + e['note'] + '\n\n' + text
+        self._journal_set_refl(text)
+
+    # ------- session recording ----------------------------------------------
+
+    LOG_COLUMNS = ['t_s', 'score', 'tier', 'tier_label', 'keys_per_s', 'error_rate',
+                   'dwell_ms', 'flight_ms', 'mouse_px', 'clicks', 'brightness_pct',
+                   'breathing_open', 'simulated']
+
+    def _toggle_record(self):
+        if self.record_var.get():
+            path = os.path.join(DATA_DIR, time.strftime('session_log_%Y%m%d_%H%M%S.csv'))
+            try:
+                self._log_fh = open(path, 'w', newline='', encoding='utf-8')
+                self._log_writer = csv.writer(self._log_fh)
+                self._log_writer.writerow(self.LOG_COLUMNS)
+                self._log_start = time.time()
+                print('[Aura UI] recording session ->', path)
+            except OSError as e:
+                print('[Aura UI] could not start recording:', e)
+                self._log_fh = self._log_writer = None
+                self.record_var.set(False)
+        else:
+            self._close_log()
+
+    def _close_log(self):
+        if self._log_fh:
+            try: self._log_fh.close()
+            except Exception: pass
+        self._log_fh = self._log_writer = None
+
+    def _log_tick(self, feats):
+        if not self._log_writer:
+            return
+        try:
+            popup = bool(self._breathing_popup and self._breathing_popup.alive())
+            self._log_writer.writerow([
+                round(time.time() - self._log_start, 2),
+                round(self.engine.score, 2),
+                self.engine.tier,
+                self.engine.label,
+                round(feats.get('keys_per_second', 0), 2),
+                round(feats.get('error_rate', 0), 4),
+                round(feats.get('mean_dwell', 0) * 1000, 1),
+                round(feats.get('mean_flight', 0) * 1000, 1),
+                round(feats.get('mouse_distance', 0)),
+                feats.get('mouse_clicks', 0),
+                self._last_bright,
+                int(popup),
+                int(self._sim_ticks > 0),
+            ])
+            self._log_fh.flush()
+        except Exception:
+            pass
+
+    # ------- demo mode (for presentations) -----------------------------------
+
+    DEMO_SCRIPT = [
+        # (label, target score, seconds, note, [seconds into stage when a notification arrives])
+        ('1/4  Normal working', 12, 7, 'Relaxed typing. Screen stays bright and cool. '
+                                       'A notification is delivered normally.', [3.0]),
+        ('2/4  Stress building', 48, 7, 'Erratic input. Brightness and colour temperature ease down.',
+                                       [3.5]),
+        ('3/4  Elevated stress', 85, 7, 'Focus mode is BLOCKING: notifications are held back (red cards). '
+                                        'Dimmer, warmer screen, music lowered, breathing guide, Aura check-in.',
+                                       [1.5, 3.0, 4.5]),
+        ('4/4  Recovery', 8, 7, 'Stress falls: a summary of held notifications appears, '
+                                'then new ones are delivered again.', [6.0]),
+    ]
+    DEMO_FEATS = [   # kps, error rate, dwell s, flight s, mouse px, clicks (per tier)
+        (4.2, 0.02, 0.095, 0.140, 1800, 3),
+        (5.6, 0.08, 0.150, 0.100, 5200, 9),
+        (7.8, 0.19, 0.240, 0.070, 14000, 24),
+    ]
+
+    def _open_demo(self):
+        if self._demo_win and self._demo_win.winfo_exists():
+            self._demo_win.lift()
+            return
+        win = tk.Toplevel(self.root)
+        win.title('Aura UI  -  Demo')
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(self.root)
+        win.protocol('WM_DELETE_WINDOW', self._demo_close)
+        self._demo_win = win
+        tk.Label(win, text='Demo controller', bg=BG, fg=TEXT,
+                 font=('Georgia', 13)).pack(anchor='w', padx=16, pady=(14, 0))
+        tk.Label(win, text='drives the real app with simulated input', bg=BG, fg=FAINT,
+                 font=('Arial', 7)).pack(anchor='w', padx=16, pady=(0, 8))
+
+        bk = dict(relief='flat', font=('Arial', 10), cursor='hand2', pady=6,
+                  activebackground=BORDER)
+        tk.Button(win, text='Run full scripted demo', command=self._demo_run_script,
+                  bg=SURF, fg=CALM, **bk).pack(fill='x', padx=16, pady=(0, 6))
+        tk.Label(win, text='or set the state by hand', bg=BG, fg=MUTED,
+                 font=('Arial', 8)).pack(anchor='w', padx=16, pady=(4, 2))
+        row = tk.Frame(win, bg=BG)
+        row.pack(fill='x', padx=16)
+        for i, (txt, col, lvl) in enumerate([('Calm', CALM, 8), ('Mild', MILD, 48),
+                                             ('Elevated', ELEV, 85)]):
+            tk.Button(row, text=txt, command=lambda l=lvl: self._demo_manual(l),
+                      bg=SURF, fg=col, **bk).pack(side='left', fill='x', expand=True,
+                                                  padx=(0 if i == 0 else 4, 0))
+        tk.Button(win, text='Show breathing guide', command=self._chat_breathe,
+                  bg=SURF, fg=MUTED, **bk).pack(fill='x', padx=16, pady=(8, 0))
+        tk.Button(win, text='Aura check-in (chat)', command=self._demo_checkin,
+                  bg=SURF, fg=MUTED, **bk).pack(fill='x', padx=16, pady=(6, 0))
+        tk.Button(win, text='Send test notification', command=self._send_test_notif,
+                  bg=SURF, fg=MUTED, **bk).pack(fill='x', padx=16, pady=(6, 0))
+        tk.Button(win, text='Stop demo (back to live sensing)', command=self._demo_stop,
+                  bg=SURF, fg=ELEV, **bk).pack(fill='x', padx=16, pady=(10, 0))
+
+        self._demo_status = tk.StringVar(value='Idle - using real keyboard/mouse input')
+        tk.Label(win, textvariable=self._demo_status, bg=BG, fg=TEXT, wraplength=260,
+                 justify='left', font=('Arial', 9, 'bold')).pack(anchor='w', padx=16, pady=(12, 0))
+        self._demo_note = tk.StringVar(value='')
+        tk.Label(win, textvariable=self._demo_note, bg=BG, fg=MUTED, wraplength=260,
+                 justify='left', font=('Arial', 8)).pack(anchor='w', padx=16, pady=(2, 14))
+        win.geometry('+{}+{}'.format(self.root.winfo_x() + self.root.winfo_width() + 8,
+                                     self.root.winfo_y()))
+
+    def _demo_reset_triggers(self):
+        self._last_popup_time = 0.0
+        self._last_checkin    = 0.0
+        self._elevated_since  = None
+
+    def _demo_manual(self, level):
+        self._demo_script = []
+        self._demo_idx = -1
+        self._demo_reset_triggers()
+        self._demo_target = level
+        name = ['Calm', 'Mild', 'Elevated'][0 if level < 30 else 1 if level < 60 else 2]
+        self._demo_status.set('Manual: ' + name)
+        self._demo_note.set('Holding this state until you pick another.')
+
+    def _demo_run_script(self):
+        self._chat_dismiss()
+        if self._breathing_popup and self._breathing_popup.alive():
+            self._breathing_popup.close()
+        self._demo_reset_triggers()
+        self._demo_script = list(self.DEMO_SCRIPT)
+        self._demo_idx = -1
+        self._demo_end = 0.0
+        self._demo_target = self.engine.score   # start from wherever we are
+
+    def _demo_checkin(self):
+        if self._demo_target is None:
+            self._demo_target = self.engine.score
+        self._chat_check_in()
+
+    def _demo_stop(self):
+        self._demo_target = None
+        self._demo_script = []
+        self._demo_idx = -1
+        if self._demo_status:
+            self._demo_status.set('Idle - using real keyboard/mouse input')
+            self._demo_note.set('')
+
+    def _demo_close(self):
+        self._demo_stop()
+        self._demo_win.destroy()
+
+    def _demo_tick(self):
+        """Advance the script, ease the engine toward the target, return fake features."""
+        if self._demo_script and time.time() >= self._demo_end:
+            self._demo_idx += 1
+            if self._demo_idx >= len(self._demo_script):
+                self._demo_stop()
+                self._demo_status.set('Demo finished')
+                self._demo_note.set('Press "Run full scripted demo" to repeat.')
+                return None
+            label, level, secs, note, _events = self._demo_script[self._demo_idx]
+            self._demo_target = level
+            self._demo_end = time.time() + secs
+            self._demo_stage_start = time.time()
+            self._demo_fired = 0
+            self._demo_note.set(note)
+            if level >= 60:
+                self._demo_reset_triggers()
+        if self._demo_script and self._demo_idx >= 0:
+            left = int(max(0, self._demo_end - time.time()))
+            self._demo_status.set('{}  ({}s)'.format(self._demo_script[self._demo_idx][0], left))
+            events = self._demo_script[self._demo_idx][4]
+            while (self._demo_fired < len(events)
+                   and time.time() - self._demo_stage_start >= events[self._demo_fired]):
+                self._demo_fired += 1
+                self._send_test_notif()
+        eng = self.engine
+        eng.smoothed += (self._demo_target - eng.smoothed) * 0.18
+        kps, err, dwell, flight, px, clicks = self.DEMO_FEATS[
+            0 if self._demo_target < 30 else 1 if self._demo_target < 60 else 2]
+        j = lambda v: v * (1 + random.uniform(-0.08, 0.08))
+        return {'keys_per_second': j(kps), 'error_rate': j(err), 'mean_dwell': j(dwell),
+                'mean_flight': j(flight), 'mouse_distance': j(px), 'mouse_clicks': int(j(clicks))}
 
     def _open_settings(self):
         if self._settings_win and self._settings_win.winfo_exists():
@@ -516,23 +1024,112 @@ class AmbientApp:
         win.geometry('+{}+{}'.format(x, y))
 
     def _build_chat(self):
-        tk.Frame(self.root, bg=BORDER, height=1).pack(fill='x', padx=20, pady=(8, 8))
-        wrap = tk.Frame(self.root, bg=BG)
+        tk.Frame(self._right, bg=BORDER, height=1).pack(fill='x', padx=20, pady=(8, 8))
+        wrap = tk.Frame(self._right, bg=BG)
         wrap.pack(fill='x', padx=20, pady=(0, 14))
-        tk.Label(wrap, text='Aura  |  coming soon', bg=BG, fg=FAINT,
-                 font=('Arial', 8, 'italic')).pack(anchor='w', pady=(0, 4))
+        hdr = tk.Frame(wrap, bg=BG)
+        hdr.pack(fill='x', pady=(0, 4))
+        tk.Label(hdr, text='Aura', bg=BG, fg=MUTED,
+                 font=('Arial', 8, 'italic')).pack(side='left')
+        tk.Button(hdr, text="I'm Good", command=self._chat_dismiss, bg=BG, fg=MUTED,
+                  relief='flat', font=('Arial', 8), bd=0, activebackground=BG,
+                  activeforeground=CALM, cursor='hand2').pack(side='right')
+        tk.Button(hdr, text='Breathe', command=self._chat_breathe, bg=BG, fg=MUTED,
+                  relief='flat', font=('Arial', 8), bd=0, activebackground=BG,
+                  activeforeground=CALM, cursor='hand2').pack(side='right', padx=8)
+
+        self.chat_log = tk.Text(wrap, height=7, width=30, bg=SURF, fg=TEXT, relief='flat',
+                                wrap='word', font=('Arial', 9), state='disabled',
+                                highlightbackground=BORDER, highlightthickness=1,
+                                padx=8, pady=6)
+        self.chat_log.pack(fill='x', pady=(0, 6))
+        self.chat_log.tag_config('aura', foreground=CALM)
+        self.chat_log.tag_config('user', foreground=MUTED, justify='right')
+        self.chat_log.tag_config('note', foreground=FAINT)
+
         row = tk.Frame(wrap, bg=SURF, highlightbackground=BORDER, highlightthickness=1)
         row.pack(fill='x')
-        tk.Entry(row, bg=SURF, fg=FAINT, state='disabled', relief='flat',
-                 font=('Arial', 9), disabledforeground=FAINT,
-                 disabledbackground=SURF).pack(side='left', fill='x', expand=True, padx=8, pady=5)
-        tk.Button(row, text='Send', state='disabled', bg=SURF, fg=FAINT,
-                  relief='flat', font=('Arial', 8),
-                  disabledforeground=FAINT).pack(side='right', padx=6)
+        self.chat_entry = tk.Entry(row, bg=SURF, fg=TEXT, insertbackground=TEXT,
+                                   relief='flat', font=('Arial', 9))
+        self.chat_entry.pack(side='left', fill='x', expand=True, padx=8, pady=5)
+        self.chat_entry.bind('<Return>', lambda e: self._chat_send())
+        self.chat_send_btn = tk.Button(row, text='Send', command=self._chat_send,
+                                       bg=SURF, fg=CALM, relief='flat', font=('Arial', 8),
+                                       activebackground=BORDER, cursor='hand2')
+        self.chat_send_btn.pack(side='right', padx=6)
+
+        if self.llm.available:
+            self._chat_add('note', "Talk to Aura any time. It also checks in when you're stressed.")
+        else:
+            self._chat_add('note', 'Add "openrouter_api_key" to secrets.json to enable chat.')
+            self.chat_entry.config(state='disabled')
+            self.chat_send_btn.config(state='disabled')
+
+    # ------- Aura chat (OpenRouter) ----------------------------------------------
+
+    def _chat_add(self, tag, text):
+        self.chat_log.config(state='normal')
+        self.chat_log.insert('end', text + '\n\n', tag)
+        self.chat_log.config(state='disabled')
+        self.chat_log.see('end')
+
+    def _stress_note(self):
+        return 'stress score {:.0f}/100 ({}).'.format(self.engine.score, self.engine.label)
+
+    def _chat_request(self, text, fallback):
+        """Run an AI call off the UI thread; reply is posted back via after()."""
+        self.chat_send_btn.config(state='disabled')
+        note = self._stress_note()
+
+        def work():
+            try:
+                reply, tag = self.llm.chat(text, note), 'aura'
+            except Exception as e:
+                print('[Aura UI] AI error:', e)
+                reply, tag = fallback, 'note'
+            def done():
+                if self._chat_gen != gen:
+                    return           # chat was dismissed while waiting
+                self._chat_add(tag, reply)
+                self.chat_send_btn.config(state='normal')
+            self.root.after(0, done)
+        gen = self._chat_gen
+        threading.Thread(target=work, daemon=True).start()
+
+    def _chat_send(self):
+        text = self.chat_entry.get().strip()
+        if not text or not self.llm.available:
+            return
+        self.chat_entry.delete(0, 'end')
+        self._chat_add('user', text)
+        self._chat_request(text, "I hear you. Take a moment to breathe.")
+
+    def _chat_check_in(self):
+        """Aura opens the conversation when the user has been Elevated for a while."""
+        self._chat_gen += 1
+        self.llm.reset()
+        self._show()
+        self._chat_add('note', 'Aura noticed you seem stressed.')
+        self._chat_request(OPENER, "You seem a bit stuck. Want to talk about what's blocking you?")
+
+    def _chat_dismiss(self):
+        self._chat_gen += 1
+        self.llm.reset()
+        self.chat_log.config(state='normal')
+        self.chat_log.delete('1.0', 'end')
+        self.chat_log.config(state='disabled')
+        if self.llm.available:
+            self.chat_send_btn.config(state='normal')
+        self._elevated_since = None
+        self._last_checkin = time.time()
+
+    def _chat_breathe(self):
+        if not (self._breathing_popup and self._breathing_popup.alive()):
+            self._start_breathing()
 
     def _build_music(self):
-        tk.Frame(self.root, bg=BORDER, height=1).pack(fill='x', padx=20, pady=(8, 4))
-        wrap = tk.Frame(self.root, bg=BG)
+        tk.Frame(self._right, bg=BORDER, height=1).pack(fill='x', padx=20, pady=(8, 4))
+        wrap = tk.Frame(self._right, bg=BG)
         wrap.pack(fill='x', padx=20, pady=(0, 4))
 
         # Header
@@ -668,7 +1265,9 @@ class AmbientApp:
         if not self._running:
             return
         features = self.daemon.get_features()
-        if self._calibrating:
+        if self._demo_target is not None:
+            features = self._demo_tick() or features   # engine steered by the demo
+        elif self._calibrating:
             self._calibration_tick(features)
         elif self._sim_ticks > 0:
             self.engine.inject_stress(82)
@@ -739,6 +1338,7 @@ class AmbientApp:
         self._sv['mouse_clicks'].set(str(m_cl) if m_cl > 0 else '--')
         
         self.bright_var.set('{}%'.format(self._last_bright))
+        self._log_tick(feats)
 
         # --- music panel update ----------------------------------------------
         t = self._track_cache
@@ -751,13 +1351,15 @@ class AmbientApp:
             self._pp_btn.config(text='⏸' if t['is_playing'] else '⏵')
             self._sp_dot.config(fg=CALM)
         elif self.spotify.available:
-            self._track_var.set('Nothing playing')
-            self._artist_var.set('—')
+            blocked = 'not added' in (self.spotify.status or '').lower()
+            self._track_var.set(
+                'Account not allowed' if blocked else 'Nothing playing')
+            self._artist_var.set(self.spotify.status if blocked else '—')
             self._vol_var.set('--')
             self._sp_dot.config(fg=MILD)
         else:
             self._track_var.set('Not connected')
-            self._artist_var.set('—')
+            self._artist_var.set(self.spotify.status or '—')
             self._vol_var.set('--')
             self._sp_dot.config(fg=FAINT)
 
@@ -769,20 +1371,37 @@ class AmbientApp:
             self._vol_target = None
 
         # --- notification muting ---------------------------------------------
-        if self.engine.tier == 2 and not self._dnd_active:
+        self.stats.tick(self.engine.score, self.engine.tier, self._demo_target is not None)
+        blocking = self._blocking()
+        if blocking and not self._dnd_active:
             self.os_ctrl.set_dnd(True)
             self._dnd_active = True
-        elif self.engine.tier < 2 and self._dnd_active:
+        elif not blocking and self._dnd_active:
             self.os_ctrl.set_dnd(False)
             self._dnd_active = False
+            self._release_held()
+        self._focus_state.config(text='BLOCKING notifications' if blocking else
+                                 ('standing by' if self.focus_mode.get() else 'off'),
+                                 fg=ELEV if blocking else MUTED)
+
+        # --- Aura check-in: Elevated for 10 s straight, then at most once per 5 min
+        if self.engine.tier == 2:
+            if self._elevated_since is None:
+                self._elevated_since = time.time()
+            elif ((self.llm.available or self._demo_target is not None)
+                  and time.time() - self._elevated_since > (3 if self._demo_target is not None else 10)
+                  and time.time() - self._last_checkin > 300):
+                self._last_checkin = time.time()
+                self._chat_check_in()
+        else:
+            self._elevated_since = None
 
         # --- breathing popup when Elevated -----------------------------------
         if self.engine.tier == 2:
             popup_gone  = not (self._breathing_popup and self._breathing_popup.alive())
             cooldown_ok = (time.time() - self._last_popup_time) > 120
             if popup_gone and cooldown_ok:
-                self._last_popup_time = time.time()
-                self._breathing_popup = BreathingPopup(self.root)
+                self._start_breathing()
 
     # ------- tray ------------------------------------------------------------
 
@@ -808,6 +1427,7 @@ class AmbientApp:
 
     def _quit(self):
         self._running = False
+        self._close_log()
         if self.tray:
             try: self.tray.stop()
             except: pass
