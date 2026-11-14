@@ -1,0 +1,6 @@
+{
+  "_comment": "Copy to firebase_config.json and fill in. The api_key is the PUBLIC Firebase Web API key (Project settings > General > Web API Key). It is not a secret: it identifies the project, not a user. Access is controlled by Firestore security rules.",
+  "project_id": "YOUR_PROJECT_ID",
+  "api_key": "YOUR_FIREBASE_WEB_API_KEY",
+  "collection": "aura_sessions"
+}

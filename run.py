@@ -16,16 +16,17 @@ except Exception:
     except Exception:
         pass
 
-if getattr(sys, 'frozen', False):
-    DATA_DIR = os.path.dirname(sys.executable)
-else:
-    DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+from backend.paths import base_dir
+
+DATA_DIR = base_dir()
 
 from backend.telemetry_daemon import TelemetryDaemon
 from backend.os_controller import OSController
 from backend.spotify_controller import SpotifyController
 from backend.llm_controller import LLMController, OPENER
 from backend import journal as journal_store
+from backend import research
+from backend import firebase_sync
 
 try:
     import pystray
@@ -64,6 +65,7 @@ DEFAULTS = {
     'baseline_cov': 0.0,   # calibrated resting CoV
     'baseline_err': 0.0,   # calibrated resting error rate
     'is_calibrated': 0,    # 0 = never done, 1 = done
+    'participant_code': '',  # research pseudonym (see backend/research.py)
 }
 
 class Settings:
@@ -384,6 +386,8 @@ class AmbientApp:
         self._running            = True
         self._sim_ticks          = 0
         self._last_bright        = 100
+        self._orig_bright        = None   # display state captured when the user opts in
+        self._display_touched    = False  # did we actually write to the display?
         self._settings_win       = None
         self._breathing_popup    = None
         self._last_popup_time    = 0.0
@@ -422,9 +426,11 @@ class AmbientApp:
         self._demo_status        = None
         self._demo_note          = None
         # Session recording (CSV of numeric features only -- no keystroke content)
-        self._log_fh             = None
-        self._log_writer         = None
+        self._collector          = None   # research collector (see backend/research.py)
         self._log_start          = 0.0
+        self.sync                = firebase_sync.FirebaseSync()
+        self._sync_status        = self.sync.status_line()
+        self._pending_n          = 0
         self._build_window()
 
     # ------- window ----------------------------------------------------------
@@ -436,7 +442,9 @@ class AmbientApp:
         r.resizable(False, False)
         r.protocol('WM_DELETE_WINDOW', self._hide)
         self.root = r
-        self.auto_bright = tk.BooleanVar(value=True)
+        # Opt-in: the display is left untouched until the user enables this.
+        self.auto_bright = tk.BooleanVar(value=False)
+        self.auto_bright.trace_add('write', self._on_auto_bright)
         self.always_top  = tk.BooleanVar(value=False)
         self.always_top.trace_add('write', self._on_topmost)
         # two columns so the whole app fits on a laptop screen
@@ -451,6 +459,7 @@ class AmbientApp:
         self._build_controls()
         self._build_focus()
         self._build_music()
+        self._build_sync()
         self._build_chat()
         r.geometry('+80+80')
 
@@ -530,6 +539,9 @@ class AmbientApp:
                        command=self._toggle_record,
                        bg=BG, fg=MUTED, selectcolor=SURF, activebackground=BG,
                        font=('Arial', 8)).pack(side='right')
+        tk.Button(row2, text='Privacy', command=self._open_consent, bg=BG, fg=FAINT,
+                  relief='flat', font=('Arial', 8), bd=0, activebackground=BG,
+                  activeforeground=CALM, cursor='hand2').pack(side='right', padx=(0, 6))
 
         btn_row = tk.Frame(self._left, bg=BG)
         btn_row.pack(fill='x', padx=20, pady=(0, 4))
@@ -650,13 +662,31 @@ class AmbientApp:
                                  font=('Arial', 8))
         self._j_stats.pack(anchor='w', padx=16, pady=(2, 8))
 
-        tk.Label(win, text='How did this session feel? (optional)', bg=BG, fg=MUTED,
-                 font=('Arial', 8)).pack(anchor='w', padx=16)
+        tk.Label(win, text='How did this session feel? (optional \u00b7 saved with the session)',
+                 bg=BG, fg=MUTED, font=('Arial', 8)).pack(anchor='w', padx=16)
+        tk.Label(win, text='sent to the research dataset when cloud sync is on \u00b7 never shown to other participants',
+                 bg=BG, fg=FAINT, font=('Arial', 7), wraplength=300,
+                 justify='left').pack(anchor='w', padx=16, pady=(0, 2))
         tk_kw = dict(bg=SURF, fg=TEXT, relief='flat', wrap='word', font=('Arial', 9),
                      highlightbackground=BORDER, highlightthickness=1, padx=8, pady=6,
                      insertbackground=TEXT)
         self._j_note = tk.Text(win, height=3, width=48, **tk_kw)
         self._j_note.pack(padx=16, pady=(2, 8))
+
+        # Post-session self-report -- the ground-truth label for the recorded session.
+        sr = tk.Frame(win, bg=BG)
+        sr.pack(fill='x', padx=16, pady=(0, 6))
+        self._j_stress  = tk.IntVar(value=4)
+        self._j_valence = tk.IntVar(value=5)
+        for lbl, var in (('Perceived stress (0-10)', self._j_stress),
+                         ('Mood (0-10)', self._j_valence)):
+            cell = tk.Frame(sr, bg=BG)
+            cell.pack(side='left', fill='x', expand=True, padx=(0, 6))
+            tk.Label(cell, text=lbl, bg=BG, fg=MUTED,
+                     font=('Arial', 7)).pack(anchor='w')
+            tk.Scale(cell, from_=0, to=10, orient='horizontal', variable=var,
+                     bg=BG, fg=TEXT, troughcolor=SURF, highlightthickness=0, bd=0,
+                     activebackground=CALM, font=('Arial', 7)).pack(fill='x')
 
         btns = tk.Frame(win, bg=BG)
         btns.pack(fill='x', padx=16)
@@ -738,12 +768,51 @@ class AmbientApp:
         except OSError as e:
             print('[Aura UI] could not save journal:', e)
             return
+        # Attach the self-report and the written note/reflection, then close it.
+        if self._collector:
+            self._collector.set_journal(entry['note'], entry['reflection'])
+            self._collector.set_self_report(int(self._j_stress.get()),
+                                            int(self._j_valence.get()))
+            self._close_log()
+        else:
+            # Saved without an active recording: still belongs in the dataset,
+            # so write a zero-tick session holding the numbers + self-report.
+            self._journal_only_record(s)
         self.stats.reset()
         self._update_notif_lbl()
         self._j_note.delete('1.0', 'end')
         self._j_reflection = ''
         self._journal_set_refl('Saved. A fresh session has started.')
         self._journal_refresh()
+        if self.record_var.get():
+            self._toggle_record()
+
+    def _journal_only_record(self, stats):
+        """Persist a journal entry that was saved outside a recording session.
+
+        This is the case behind "Duration 0m 00s | avg 0 | peak 0": the entry's
+        numbers (duration, mean/peak score, tier dwell, episodes, breathing,
+        notifications held, perceived stress, mood) still go into the dataset.
+        """
+        if not research.consent_status().get('granted'):
+            return
+        code = (self.settings['participant_code'] or '').strip()
+        if not code:
+            return
+        try:
+            c = research.ResearchCollector(code, tick_hz=1000.0 / self.POLL_MS,
+                                           condition='journal-only',
+                                           instrument='journal entry (not recorded)')
+            c.set_journal(self._j_note.get('1.0', 'end'), self._j_reflection)
+            c.set_self_report(int(self._j_stress.get()), int(self._j_valence.get()))
+            c.end(stats)
+            c.close()
+            print('[Aura UI] journal entry stored ->', c.session_path)
+            if self.sync.enabled:
+                self._sync_refresh()
+                threading.Thread(target=self._sync_once, daemon=True).start()
+        except Exception as e:
+            print('[Aura UI] could not store journal record:', e)
 
     def _journal_view(self, _event=None):
         sel = self._j_list.curselection()
@@ -757,55 +826,145 @@ class AmbientApp:
 
     # ------- session recording ----------------------------------------------
 
-    LOG_COLUMNS = ['t_s', 'score', 'tier', 'tier_label', 'keys_per_s', 'error_rate',
-                   'dwell_ms', 'flight_ms', 'mouse_px', 'clicks', 'brightness_pct',
-                   'breathing_open', 'simulated']
-
     def _toggle_record(self):
-        if self.record_var.get():
-            path = os.path.join(DATA_DIR, time.strftime('session_log_%Y%m%d_%H%M%S.csv'))
-            try:
-                self._log_fh = open(path, 'w', newline='', encoding='utf-8')
-                self._log_writer = csv.writer(self._log_fh)
-                self._log_writer.writerow(self.LOG_COLUMNS)
-                self._log_start = time.time()
-                print('[Aura UI] recording session ->', path)
-            except OSError as e:
-                print('[Aura UI] could not start recording:', e)
-                self._log_fh = self._log_writer = None
-                self.record_var.set(False)
-        else:
+        """Start/stop a research session. Collection is consent-gated."""
+        if not self.record_var.get():
             self._close_log()
+            return
+        if not research.consent_status().get('granted'):
+            self.record_var.set(False)
+            self._open_consent()
+            return
+        code = (self.settings['participant_code'] or '').strip()
+        if not code:
+            self.record_var.set(False)
+            self._open_consent()
+            return
+        try:
+            self._collector = research.ResearchCollector(
+                code, tick_hz=1000.0 / self.POLL_MS, condition='field')
+            self._log_start = time.time()
+            print('[Aura UI] research session ->', self._collector.session_path)
+        except Exception as e:
+            print('[Aura UI] could not start recording:', e)
+            self._collector = None
+            self.record_var.set(False)
 
-    def _close_log(self):
-        if self._log_fh:
-            try: self._log_fh.close()
-            except Exception: pass
-        self._log_fh = self._log_writer = None
+    def _close_log(self, sync=True):
+        if self._collector:
+            try:
+                self._collector.end(self.stats.summary())
+            except Exception as e:
+                print('[Aura UI] could not close session:', e)
+            self._collector = None
+            if sync and self.sync.enabled:
+                self._sync_refresh()
+                threading.Thread(target=self._sync_once, daemon=True).start()
 
     def _log_tick(self, feats):
-        if not self._log_writer:
+        if not self._collector:
             return
         try:
             popup = bool(self._breathing_popup and self._breathing_popup.alive())
-            self._log_writer.writerow([
-                round(time.time() - self._log_start, 2),
-                round(self.engine.score, 2),
-                self.engine.tier,
-                self.engine.label,
-                round(feats.get('keys_per_second', 0), 2),
-                round(feats.get('error_rate', 0), 4),
-                round(feats.get('mean_dwell', 0) * 1000, 1),
-                round(feats.get('mean_flight', 0) * 1000, 1),
-                round(feats.get('mouse_distance', 0)),
-                feats.get('mouse_clicks', 0),
-                self._last_bright,
-                int(popup),
-                int(self._sim_ticks > 0),
-            ])
-            self._log_fh.flush()
+            self._collector.log_tick(
+                time.time() - self._log_start, self.engine.score, self.engine.tier,
+                feats, brightness=self._last_bright, breathing=popup,
+                simulated=int(self._sim_ticks > 0),
+                label='demo' if self._demo_target is not None else 'live')
         except Exception:
             pass
+
+    # ------- consent / privacy ----------------------------------------------
+
+    def _open_consent(self):
+        """Consent record, participant code and what is (not) stored."""
+        win = tk.Toplevel(self.root)
+        win.title('Research data  -  privacy')
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(self.root)
+
+        tk.Label(win, text='Research data', bg=BG, fg=TEXT,
+                 font=('Georgia', 13)).pack(anchor='w', padx=16, pady=(14, 2))
+        tk.Label(win, text='stored only on this computer  \u00b7  pseudonymous  \u00b7  no keystroke content',
+                 bg=BG, fg=FAINT, font=('Arial', 7)).pack(anchor='w', padx=16)
+
+        tk.Label(win, text=research.CONSENT_TEXT, bg=SURF, fg=MUTED,
+                 font=('Arial', 8), wraplength=380, justify='left',
+                 padx=10, pady=8).pack(fill='x', padx=16, pady=(10, 8))
+
+        row = tk.Frame(win, bg=BG)
+        row.pack(fill='x', padx=16, pady=(0, 6))
+        tk.Label(row, text='Participant code', bg=BG, fg=MUTED,
+                 font=('Arial', 8), width=16, anchor='w').pack(side='left')
+        code_var = tk.StringVar(value=self.settings['participant_code'] or '')
+        tk.Entry(row, textvariable=code_var, bg=SURF, fg=TEXT, relief='flat',
+                 insertbackground=TEXT, font=('Arial', 9),
+                 highlightbackground=BORDER, highlightthickness=1).pack(
+                 side='left', fill='x', expand=True)
+
+        status = tk.Label(win, text='', bg=BG, fg=MUTED, font=('Arial', 8),
+                          wraplength=380, justify='left')
+        status.pack(anchor='w', padx=16, pady=(4, 0))
+
+        def refresh():
+            st = research.consent_status()
+            n = len(research.list_sessions())
+            cloud = '\u00b7 ' + self.sync.status_line()
+            if st.get('granted'):
+                status.config(fg=CALM,
+                              text='Consent on file ({}) \u00b7 {} session(s) stored locally {}'.format(
+                                  st.get('granted_at', '?'), n, cloud))
+            else:
+                status.config(fg=ELEV,
+                              text='No consent on file \u00b7 recording disabled {}'.format(cloud))
+
+        def grant():
+            code = code_var.get().strip()
+            if not code:
+                status.config(fg=ELEV, text='Enter a participant code first.')
+                return
+            try:
+                research.give_consent(code, note='consent given in app')
+            except Exception as e:
+                status.config(fg=ELEV, text='Could not save consent: {}'.format(e))
+                return
+            self.settings['participant_code'] = code
+            refresh()
+
+        def withdraw():
+            # Order matters: stop recording without triggering an upload, erase the
+            # cloud copies while the local session IDs are still known, then purge.
+            st_record = research.consent_status()
+            pseudo = st_record.get('pseudonym')
+            self.record_var.set(False)
+            self._close_log(sync=False)
+            cloud = ''
+            if pseudo and self.sync.enabled:
+                status.config(fg=MUTED, text='Deleting cloud copies\u2026')
+                win.update_idletasks()
+                res = self.sync.delete_participant(pseudo)
+                cloud = ' \u00b7 {} cloud doc(s) deleted'.format(res['deleted'])
+                if res['failed']:
+                    cloud += ' ({} failed: {})'.format(
+                        res['failed'], res['errors'][0] if res['errors'] else '?')
+            removed = research.revoke_consent(purge=True)
+            self._sync_refresh()
+            status.config(fg=MILD,
+                          text='Consent withdrawn \u00b7 {} local file(s) deleted{}'.format(
+                              removed, cloud))
+
+        btns = tk.Frame(win, bg=BG)
+        btns.pack(fill='x', padx=16, pady=(10, 14))
+        tk.Button(btns, text='Save consent', command=grant, bg=SURF, fg=CALM,
+                  relief='flat', font=('Arial', 9), activebackground=BORDER,
+                  cursor='hand2', pady=4).pack(side='left', fill='x', expand=True, padx=(0, 4))
+        tk.Button(btns, text='Withdraw + delete', command=withdraw, bg=SURF, fg=ELEV,
+                  relief='flat', font=('Arial', 9), activebackground=BORDER,
+                  cursor='hand2', pady=4).pack(side='left', fill='x', expand=True)
+
+        refresh()
+        win.geometry('+{}+{}'.format(self.root.winfo_x() + 40, self.root.winfo_y() + 60))
 
     # ------- demo mode (for presentations) -----------------------------------
 
@@ -1177,6 +1336,45 @@ class AmbientApp:
                        selectcolor=SURF, activebackground=BG,
                        font=('Arial', 8)).pack(anchor='w')
 
+        # Explicit account linking: nothing authenticates until this is pressed.
+        self._sp_status_var = tk.StringVar(value=self.spotify.status)
+        tk.Label(wrap, textvariable=self._sp_status_var, bg=BG, fg=FAINT,
+                 font=('Arial', 7), wraplength=250, justify='left',
+                 anchor='w').pack(fill='x', pady=(6, 2))
+        self._sp_btn = tk.Button(wrap, command=self._sp_toggle, bg=SURF, fg=CALM,
+                                 relief='flat', font=('Arial', 8), pady=3,
+                                 activebackground=BORDER, cursor='hand2',
+                                 text='Disconnect' if self.spotify.connected else 'Connect Spotify')
+        self._sp_btn.pack(fill='x')
+        if not self.spotify.configured:
+            self._sp_btn.config(state='disabled', text='Spotify not configured')
+
+    def _build_sync(self):
+        """Visible cloud-sync state: queued count and the last upload error."""
+        tk.Frame(self._right, bg=BORDER, height=1).pack(fill='x', padx=20, pady=(4, 4))
+        wrap = tk.Frame(self._right, bg=BG)
+        wrap.pack(fill='x', padx=20, pady=(0, 6))
+        top = tk.Frame(wrap, bg=BG)
+        top.pack(fill='x')
+        tk.Label(top, text='Cloud sync', bg=BG, fg=MUTED,
+                 font=('Arial', 8, 'italic')).pack(side='left')
+        self._cloud_dot = tk.Label(top, text='●', bg=BG, fg=FAINT, font=('Arial', 8))
+        self._cloud_dot.pack(side='right')
+        self._cloud_var = tk.StringVar(value='starting…')
+        tk.Label(wrap, textvariable=self._cloud_var, bg=BG, fg=TEXT,
+                 font=('Arial', 8), anchor='w', justify='left',
+                 wraplength=250).pack(fill='x')
+
+    def _sync_refresh(self):
+        """Re-count the upload queue (filesystem walk; call off the hot path)."""
+        if not self.sync.enabled:
+            self._pending_n = 0
+            return
+        try:
+            self._pending_n = len(self.sync.pending())
+        except Exception:
+            self._pending_n = 0
+
     # ------- callbacks -------------------------------------------------------
 
     def _on_topmost(self, *_):
@@ -1192,13 +1390,43 @@ class AmbientApp:
         self.daemon.start()
         threading.Thread(target=self._brightness_loop, daemon=True).start()
         threading.Thread(target=self._spotify_loop,    daemon=True).start()
+        if self.sync.enabled:
+            self._sync_refresh()
+            threading.Thread(target=self._sync_loop, daemon=True).start()
         self._poll()
 
+    # ------- optional cloud sync (Firebase) -----------------------------------
+
+    def _sync_once(self):
+        """Push any locally finished sessions. Never raises, never blocks the UI."""
+        if not self.sync.enabled:
+            return
+        try:
+            res = self.sync.push_pending()
+            self._sync_status = self.sync.status_line()
+            if res.get('uploaded'):
+                print('[Aura UI] Firebase sync:', res['uploaded'], 'session(s) uploaded')
+        except Exception as e:
+            print('[Aura UI] Firebase sync error:', e)
+        finally:
+            self._sync_refresh()
+
+    def _sync_loop(self):
+        while self._running:
+            self._sync_once()
+            time.sleep(300)      # retry queued sessions every 5 minutes
+
     def _spotify_loop(self):
-        """Poll track info every 3 s; ramp volume toward _vol_target at 3 %/0.5 s."""
+        """Poll track info every 3 s; ramp volume toward _vol_target at 5 %/0.5 s.
+
+        Never starts an auth flow: a cached token is resumed silently, and the
+        poll only runs once the user has connected from the Music panel.
+        """
         VOL_STEP = 5
         TICK     = 0.5
         ticks    = 0
+        if self.spotify.configured:
+            self.spotify.try_resume()
         while self._running:
             time.sleep(TICK)
             ticks += 1
@@ -1206,7 +1434,8 @@ class AmbientApp:
             # Full track poll every 6 ticks (= 3 s)
             if ticks >= 6:
                 ticks = 0
-                self._track_cache = self.spotify.current_track()
+                self._track_cache = (self.spotify.current_track()
+                                     if self.spotify.connected else None)
                 if self._track_cache and self._vol_current is None:
                     self._vol_current = float(self._track_cache['volume'])
 
@@ -1226,9 +1455,48 @@ class AmbientApp:
                 # Track actual volume when not in auto mode
                 self._vol_current = float(self._track_cache['volume'])
 
+    def _sp_toggle(self):
+        """Connect (opens the browser once) or forget the saved Spotify login."""
+        if self.spotify.connected:
+            self.spotify.disconnect()
+            self._track_cache  = None
+            self._vol_current  = None
+            self._vol_target   = None
+            self._sp_status_var.set(self.spotify.status)
+            self._sp_btn.config(text='Connect Spotify', state='normal')
+            return
+
+        self._sp_btn.config(state='disabled', text='Waiting for browser...')
+        self._sp_status_var.set('Waiting for browser...  finish the login, then return here')
+
+        def work():
+            ok = self.spotify.connect()
+            def done():
+                self._sp_status_var.set(self.spotify.status)
+                self._sp_btn.config(state='normal',
+                                    text='Disconnect' if ok else 'Connect Spotify')
+                if ok:
+                    self._track_cache = None
+            self.root.after(0, done)
+        threading.Thread(target=work, daemon=True).start()
+
     def _sp_play_pause(self):
         threading.Thread(target=self.spotify.play_pause, daemon=True).start()
 
+
+    def _on_auto_bright(self, *_):
+        """Turning auto mode off puts back the display we changed while it was on."""
+        if not self.auto_bright.get():
+            self._restore_display()
+
+    def _restore_display(self):
+        """Restore the brightness/Kelvin captured when auto mode began.
+        Does nothing if we never wrote to the display."""
+        if self._display_touched and self._orig_bright is not None:
+            self.os_ctrl.set_brightness(self._orig_bright)
+            self.os_ctrl.set_color_temp(6500)
+        self._display_touched = False
+        self._orig_bright     = None
 
     def _brightness_loop(self):
         STEP = 5          # percent per tick
@@ -1239,6 +1507,8 @@ class AmbientApp:
         while self._running:
             time.sleep(TICK)
             if self.auto_bright.get():
+                if self._orig_bright is None:      # first tick after opting in
+                    self._orig_bright = int(round(current))
                 target = float(self.engine.target_brightness)
                 if current != target:
                     # Step toward target without overshooting
@@ -1246,6 +1516,7 @@ class AmbientApp:
                     current += STEP if delta > 0 else -STEP
                     current = target if abs(target - current) < STEP else current
                     self.os_ctrl.set_brightness(int(round(current)))
+                    self._display_touched = True
                     
                 target_tmp = float(self.engine.target_temp)
                 if current_temp != target_tmp:
@@ -1253,12 +1524,11 @@ class AmbientApp:
                     current_temp += TEMP_STEP if delta_t > 0 else -TEMP_STEP
                     current_temp = target_tmp if abs(target_tmp - current_temp) < TEMP_STEP else current_temp
                     self.os_ctrl.set_color_temp(int(round(current_temp)))
+                    self._display_touched = True
             else:
-                # Manual mode — just read and track whatever the OS says
+                # Manual mode — observe only. Never write to the display.
                 current = float(self.os_ctrl.get_brightness())
-                if current_temp != 6500.0:
-                    current_temp = 6500.0
-                    self.os_ctrl.set_color_temp(6500)
+                current_temp = 6500.0
             self._last_bright = int(round(current))
 
     def _poll(self):
@@ -1341,6 +1611,7 @@ class AmbientApp:
         self._log_tick(feats)
 
         # --- music panel update ----------------------------------------------
+        self._sp_status_var.set(self.spotify.status)
         t = self._track_cache
         if t:
             title  = t['title'][:28] + '…' if len(t['title'])  > 28 else t['title']
@@ -1362,6 +1633,22 @@ class AmbientApp:
             self._artist_var.set(self.spotify.status or '—')
             self._vol_var.set('--')
             self._sp_dot.config(fg=FAINT)
+
+        # --- cloud sync status ------------------------------------------------
+        if self.sync.enabled:
+            if self.sync.last_error:
+                self._cloud_var.set('{} queued  ·  {}'.format(
+                    self._pending_n, self.sync.last_error[:70]))
+                self._cloud_dot.config(fg=ELEV)
+            elif self._pending_n:
+                self._cloud_var.set('{} queued for upload'.format(self._pending_n))
+                self._cloud_dot.config(fg=MILD)
+            else:
+                self._cloud_var.set('everything uploaded')
+                self._cloud_dot.config(fg=CALM)
+        else:
+            self._cloud_var.set('off  ·  add firebase_config.json')
+            self._cloud_dot.config(fg=FAINT)
 
         # Auto-volume: set target based on current tier, loop ramps smoothly
         if self.auto_music.get() and self.spotify.available and t:
@@ -1428,6 +1715,7 @@ class AmbientApp:
     def _quit(self):
         self._running = False
         self._close_log()
+        self._restore_display()
         if self.tray:
             try: self.tray.stop()
             except: pass
@@ -1440,5 +1728,10 @@ class AmbientApp:
         self.root.mainloop()
 
 
-if __name__ == '__main__':
+def main():
+    """Entry point for `python run.py` and for the installed `aura-ui` command."""
     AmbientApp().run()
+
+
+if __name__ == '__main__':
+    main()

@@ -6,11 +6,9 @@ import json
 import os
 import sys
 
-if getattr(sys, 'frozen', False):
-    DATA_DIR = os.path.dirname(sys.executable)
-else:
-    DATA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from backend.paths import base_dir
 
+DATA_DIR = base_dir()
 JOURNAL_FILE = os.path.join(DATA_DIR, 'journal.json')
 
 REFLECT_SYSTEM = (

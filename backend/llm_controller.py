@@ -11,11 +11,9 @@ import threading
 import urllib.error
 import urllib.request
 
-if getattr(sys, 'frozen', False):
-    DATA_DIR = os.path.dirname(sys.executable)
-else:
-    DATA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from backend.paths import base_dir
 
+DATA_DIR = base_dir()
 SECRETS_FILE = os.path.join(DATA_DIR, 'secrets.json')
 MODEL        = 'nvidia/nemotron-3.5-super-vl:free'
 ENDPOINT     = 'https://openrouter.ai/api/v1/chat/completions'

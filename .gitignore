@@ -11,9 +11,25 @@ dist/
 journal.json
 session_log_*.csv
 
+# research data (consent-gated local storage; never committed)
+data/
+exports/
+firebase_config.json
+*.synced
+
 # LaTeX auxiliary files
 *.aux
 *.log
 *.out
 *.fls
 *.fdb_latexmk
+
+# Python packaging
+*.egg-info/
+build_check/
+.venv/
+
+# The Phase 2 dataset is de-identified and part of the submission, so it is tracked
+even though it lives under a data/ folder.
+!Phase_2_Submission/data/
+!Phase_2_Submission/data/*.csv

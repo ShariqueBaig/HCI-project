@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aura-ui"
+version = "2.0.0"
+description = "Ambient stress monitor: peripheral telemetry, adaptive interventions, and privacy-preserving research data collection."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "Sharique Baig" },
+    { name = "Maira Aijaz" },
+    { name = "Barkhi Khan" },
+]
+keywords = ["hci", "ambient-computing", "stress", "keystroke-dynamics", "privacy"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Human Machine Interfaces",
+    "Topic :: Desktop Environment",
+]
+dependencies = [
+    "pynput",
+    "screen-brightness-control",
+    "pystray",
+    "Pillow",
+    "spotipy",
+]
+
+[project.optional-dependencies]
+# Session charts and the Phase 2 experiment scripts
+plots = ["matplotlib"]
+# Standalone AuraUI.exe build
+build = ["pyinstaller"]
+
+[project.scripts]
+aura-ui = "run:main"
+
+[project.urls]
+Source = "https://github.com/ShariqueBaig/HCI-project"
+
+[tool.setuptools]
+packages = ["backend"]
+py-modules = ["run", "plot_session"]
