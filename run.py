@@ -7,6 +7,14 @@ Run: python run.py
 import sys, os, threading, time, json, csv, random
 import tkinter as tk
 
+# Windowed launchers (pythonw / gui-scripts) and --noconsole builds leave
+# sys.stdout/stderr as None, and any print() would then raise and kill the app
+# before the window appears. Point them at devnull instead.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, 'w')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w')
+
 try:
     import ctypes
     ctypes.windll.shcore.SetProcessDpiAwareness(1)

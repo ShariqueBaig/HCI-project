@@ -34,7 +34,8 @@ plots = ["matplotlib"]
 # Standalone AuraUI.exe build
 build = ["pyinstaller"]
 
-[project.scripts]
+# gui-scripts -> a windowed launcher (no console window behind the widget)
+[project.gui-scripts]
 aura-ui = "run:main"
 
 [project.urls]
