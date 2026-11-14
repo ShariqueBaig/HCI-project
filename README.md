@@ -237,6 +237,11 @@ Settings, journal, `.cache` and the `data/` research store are created beside th
 
 ---
 
+**Handing the exe to testers?** Give them [TESTER_NOTES.md](TESTER_NOTES.md) — SmartScreen,
+consent, recording and Spotify steps in one page.
+
+---
+
 ## 📊 Session Visualization & Evaluation
 
 To generate session charts from recorded telemetry sessions:
