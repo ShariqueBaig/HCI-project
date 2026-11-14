@@ -1732,6 +1732,13 @@ class AmbientApp:
     def run(self):
         if TRAY_OK: self._setup_tray()
         else: print('[Aura UI] pip install pystray pillow for tray support')
+        print('[Aura UI] data dir:', DATA_DIR)
+        print('[Aura UI] spotify :', self.spotify.status)
+        print('[Aura UI] cloud   :', self.sync.status_line())
+        try:
+            sys.stdout.flush()      # redirected stdout is block-buffered
+        except Exception:
+            pass
         self._start()
         self.root.mainloop()
 

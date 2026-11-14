@@ -207,15 +207,33 @@ python experiments/run_experiment.py
 
 ## 📦 Building Standalone Executable (.exe)
 
-You can compile Aura UI into a standalone Windows executable using PyInstaller:
+Aura UI compiles into a single self-contained **AuraUI.exe** - download, double-click, done.
+No Python, no config files to place, nothing to edit.
 
 ```bash
-python -m PyInstaller --onefile --noconsole --name "AuraUI" run.py
+python -m PyInstaller --onefile --noconsole --name "AuraUI" --add-data "aura_defaults.json;." run.py
 ```
 
 Once the build finishes:
-- The compiled standalone executable will be located in `dist/AuraUI.exe`.
-- End users can run this single binary without installing Python or third-party dependencies.
+- The compiled executable is `dist/AuraUI.exe` (~34 MB). **Ship that one file and nothing else.**
+- End users run this single binary without installing Python or third-party dependencies.
+
+**Why it needs no setup:** `aura_defaults.json` is compiled into the binary and holds only
+*public* app identifiers - the Firebase project id + Web API key (access is governed by the
+Firestore rules, not by the key) and the Spotify Client ID (PKCE needs no client secret). At
+first launch it signs in to Firebase anonymously, so every copy gets its own identity and
+starts syncing with nothing to configure.
+
+**The one exception - Aura chat.** An OpenRouter key is a real secret billed to whoever owns
+it, so it is *never* compiled in. Without one the app runs normally and the chat panel says
+it needs a key. To enable it, put a `secrets.json` beside the exe:
+
+```json
+{ "openrouter_api_key": "sk-or-..." }
+```
+
+Settings, journal, `.cache` and the `data/` research store are created beside the exe (or in
+`%APPDATA%\AuraUI` if that folder is read-only).
 
 ---
 

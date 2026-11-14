@@ -13,12 +13,36 @@ Resolution order
 Everything user-specific lives here: ``secrets.json``, ``settings.json``,
 ``journal.json``, ``.cache``, and the ``data/`` research store.
 """
+import json
 import os
 import sys
 
 
 def _is_installed(path):
     return ('site-packages' in path) or ('dist-packages' in path)
+
+
+def resource_dirs():
+    """Where read-only bundled resources may live, most specific first."""
+    dirs = []
+    if getattr(sys, 'frozen', False):
+        dirs.append(getattr(sys, '_MEIPASS', os.path.dirname(sys.executable)))
+        dirs.append(os.path.dirname(sys.executable))
+    dirs.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return dirs
+
+
+def bundled_json(name):
+    """Read a JSON resource shipped inside the build (see aura_defaults.json)."""
+    for folder in resource_dirs():
+        path = os.path.join(folder, name)
+        if os.path.exists(path):
+            try:
+                with open(path, encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+    return {}
 
 
 def base_dir():
@@ -29,7 +53,12 @@ def base_dir():
         return env
 
     if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
+        exe_dir = os.path.dirname(sys.executable)
+        # Prefer files beside the exe so a copied folder stays self-contained;
+        # fall back to APPDATA when that location is not writable
+        # (e.g. the exe was dropped into Program Files).
+        if os.access(exe_dir, os.W_OK):
+            return exe_dir
 
     project = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _is_installed(project):

@@ -31,7 +31,7 @@ import time
 import urllib.error
 import urllib.request
 
-from backend import research
+from backend import paths, research
 
 SCHEMA_VERSION   = 2   # v2 adds the journal note + reflection
 SIGNUP_URL       = 'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={key}'
@@ -53,7 +53,11 @@ IDENTITY_FILE = os.path.join(research.DATA_ROOT, 'firebase_identity.json')
 
 
 def load_config(path=None):
-    """Read the config file, then the environment. Missing config means 'off'."""
+    """Resolve config: explicit file -> environment -> defaults bundled in the app.
+
+    The bundled `aura_defaults.json` is what makes a fresh download work with no
+    setup: it carries the public project id + Web API key.
+    """
     path = path or os.environ.get('AURA_FIREBASE_CONFIG') or CONFIG_FILE
     cfg = {}
     try:
@@ -61,6 +65,11 @@ def load_config(path=None):
             cfg = json.load(f)
     except Exception:
         cfg = {}
+    if not (cfg.get('project_id') and cfg.get('api_key')):
+        bundled = (paths.bundled_json('aura_defaults.json').get('firebase') or {})
+        for k in ('project_id', 'api_key', 'collection'):
+            if not cfg.get(k) and bundled.get(k):
+                cfg[k] = bundled[k]
     for k in ('project_id', 'api_key'):
         if not cfg.get(k) and os.environ.get('AURA_FIREBASE_' + k.upper()):
             cfg[k] = os.environ['AURA_FIREBASE_' + k.upper()]

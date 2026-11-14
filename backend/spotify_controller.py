@@ -34,6 +34,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyPKCE
 
 from backend.paths import base_dir
+from backend import paths
 
 DATA_DIR = base_dir()
 SECRETS_FILE = os.path.join(DATA_DIR, 'secrets.json')
@@ -79,28 +80,34 @@ class SpotifyController:
     # ------------------------------------------------------------------ setup
 
     def _init(self):
+        # A missing secrets.json is normal for a fresh download: fall through to
+        # the public client id bundled with the app instead of disabling the panel.
+        s = {}
         try:
             with open(SECRETS_FILE) as f:
                 s = json.load(f)
         except FileNotFoundError:
-            self.status = 'secrets.json not found'
-            print('[Spotify] secrets.json not found - music panel disabled.')
-            return
+            print('[Spotify] no secrets.json - using the built-in client id.')
         except Exception as e:
-            self.status = 'could not read secrets.json'
             print('[Spotify] could not read secrets.json:', e)
-            return
 
         client_id = (s.get('spotify_client_id') or '').strip()
+        redirect  = s.get('spotify_redirect_uri')
         if not _configured(client_id):
-            self.status = 'Add spotify_client_id to secrets.json'
-            print('[Spotify] no client_id (or placeholder) - music panel disabled.')
+            # Fall back to the public client id bundled with the app, so a plain
+            # download works with no configuration. PKCE needs no secret.
+            defaults = (paths.bundled_json('aura_defaults.json').get('spotify') or {})
+            client_id = (defaults.get('client_id') or '').strip()
+            redirect  = redirect or defaults.get('redirect_uri')
+        if not _configured(client_id):
+            self.status = 'Spotify not configured'
+            print('[Spotify] no usable client_id anywhere - music panel disabled.')
             return
 
         try:
             self._auth = SpotifyPKCE(
                 client_id    = client_id,
-                redirect_uri = _normalise_redirect(s.get('spotify_redirect_uri')),
+                redirect_uri = _normalise_redirect(redirect),
                 scope        = SCOPES,
                 cache_path   = CACHE_PATH,
                 open_browser = True,
