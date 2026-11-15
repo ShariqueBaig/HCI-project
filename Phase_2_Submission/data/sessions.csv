@@ -1,0 +1,2 @@
+session_id,pseudonym,condition,protocol,tick_hz,started,duration_s,ticks,score_mean,score_peak,peak_at_s,calm_s,mild_s,elevated_s,episodes,breathing,notif_held,sr_stress,sr_valence,device,journal_note,journal_reflection
+20261115-143805-b7332c,9cd1e20b5e2d62b6,controlled-protocol,2.0,3.0,2026-11-15T14:38:05+05:00,400.0,1200,40.345,100.0,279.67,193.0,105.33,101.67,5,0,0,,,win32,,

@@ -1,0 +1,6 @@
+pynput
+screen-brightness-control
+pystray
+Pillow
+spotipy
+pyinstaller

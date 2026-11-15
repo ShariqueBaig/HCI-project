@@ -1,0 +1,292 @@
+{
+  "accuracy": 0.9333333333333333,
+  "auc": 0.9941111111111111,
+  "audit": {
+    "bad": [],
+    "chain_ok": true,
+    "consent": true,
+    "data_root": "D:\\OneDrive - Institute of Business Administration\\Sharique\\sem7\\HCI\\HCI project\\data",
+    "retention_days": 180,
+    "sessions": 1
+  },
+  "confusion": {
+    "CALM": [
+      275,
+      21,
+      4
+    ],
+    "ELEV": [
+      2,
+      13,
+      285
+    ],
+    "MILD": [
+      16,
+      274,
+      10
+    ],
+    "REST": [
+      286,
+      8,
+      6
+    ]
+  },
+  "deployed_rule": {
+    "fpr": 0.011666666666666667,
+    "th": 60,
+    "tpr": 0.95
+  },
+  "elev_recall": 0.95,
+  "export": {
+    "sessions": 1,
+    "sessions_csv": "D:\\OneDrive - Institute of Business Administration\\Sharique\\sem7\\HCI\\HCI project\\Phase_2_Submission\\data\\sessions.csv",
+    "ticks": 1200,
+    "ticks_csv": "D:\\OneDrive - Institute of Business Administration\\Sharique\\sem7\\HCI\\HCI project\\Phase_2_Submission\\data\\ticks.csv"
+  },
+  "false_elevated_rate": 0.016666666666666666,
+  "features_by_condition": {
+    "CALM": {
+      "clicks": 2.526666666666667,
+      "cov": 0.21994663328010636,
+      "dwell_ms": 95.12866906093728,
+      "err": 0.020024044218115402,
+      "kps": 4.189084227528638,
+      "mouse_px": 1804.2908658957906
+    },
+    "ELEV": {
+      "clicks": 23.38,
+      "cov": 0.6211529352413386,
+      "dwell_ms": 239.2124421148723,
+      "err": 0.18930942259334352,
+      "kps": 7.798412778462232,
+      "mouse_px": 13957.0125165128
+    },
+    "MILD": {
+      "clicks": 8.483333333333333,
+      "cov": 0.44881820530574507,
+      "dwell_ms": 160.16823240459928,
+      "err": 0.07977383671365842,
+      "kps": 5.592937584865146,
+      "mouse_px": 5222.16645407306
+    },
+    "REST": {
+      "clicks": 0,
+      "cov": 0.0,
+      "dwell_ms": 0.0,
+      "err": 0.0,
+      "kps": 0.0,
+      "mouse_px": 0.0
+    }
+  },
+  "integrity": {
+    "message": "1202 records verified",
+    "ok": true,
+    "session": "20261115-143805-b7332c.jsonl"
+  },
+  "latency_elev_s": [
+    1.0,
+    1.33,
+    1.33,
+    0.33,
+    1.0
+  ],
+  "minimisation": {
+    "key_char_stored": false,
+    "keys_stored": [
+      "keys_per_second"
+    ],
+    "window_title_stored": false
+  },
+  "n_ticks": 1200,
+  "operating_point": {
+    "fpr": 0.02666666666666667,
+    "th": 40,
+    "tpr": 0.98
+  },
+  "protocol": {
+    "block_s": 20.0,
+    "blocks": 20,
+    "conditions": [
+      "REST",
+      "CALM",
+      "MILD",
+      "ELEV"
+    ],
+    "duration_s": 400.0,
+    "order": [
+      "MILD",
+      "CALM",
+      "ELEV",
+      "REST",
+      "MILD",
+      "REST",
+      "ELEV",
+      "CALM",
+      "MILD",
+      "CALM",
+      "REST",
+      "ELEV",
+      "MILD",
+      "ELEV",
+      "REST",
+      "CALM",
+      "REST",
+      "MILD",
+      "CALM",
+      "ELEV"
+    ],
+    "rounds": 5,
+    "seed": 20261114,
+    "tick_s": 0.3333,
+    "ticks": 1200
+  },
+  "recovery_calm_s": [
+    2.0,
+    2.0
+  ],
+  "roc": [
+    {
+      "fpr": 1.0,
+      "th": 0,
+      "tpr": 1.0
+    },
+    {
+      "fpr": 0.6266666666666667,
+      "th": 5,
+      "tpr": 1.0
+    },
+    {
+      "fpr": 0.5333333333333333,
+      "th": 10,
+      "tpr": 1.0
+    },
+    {
+      "fpr": 0.5066666666666667,
+      "th": 15,
+      "tpr": 1.0
+    },
+    {
+      "fpr": 0.10333333333333333,
+      "th": 20,
+      "tpr": 0.9933333333333333
+    },
+    {
+      "fpr": 0.07166666666666667,
+      "th": 25,
+      "tpr": 0.9933333333333333
+    },
+    {
+      "fpr": 0.05333333333333334,
+      "th": 30,
+      "tpr": 0.9933333333333333
+    },
+    {
+      "fpr": 0.04,
+      "th": 35,
+      "tpr": 0.98
+    },
+    {
+      "fpr": 0.02666666666666667,
+      "th": 40,
+      "tpr": 0.98
+    },
+    {
+      "fpr": 0.021666666666666667,
+      "th": 45,
+      "tpr": 0.9666666666666667
+    },
+    {
+      "fpr": 0.016666666666666666,
+      "th": 50,
+      "tpr": 0.9666666666666667
+    },
+    {
+      "fpr": 0.015,
+      "th": 55,
+      "tpr": 0.9533333333333334
+    },
+    {
+      "fpr": 0.011666666666666667,
+      "th": 60,
+      "tpr": 0.95
+    },
+    {
+      "fpr": 0.01,
+      "th": 65,
+      "tpr": 0.9333333333333333
+    },
+    {
+      "fpr": 0.006666666666666667,
+      "th": 70,
+      "tpr": 0.9166666666666666
+    },
+    {
+      "fpr": 0.005,
+      "th": 75,
+      "tpr": 0.91
+    },
+    {
+      "fpr": 0.005,
+      "th": 80,
+      "tpr": 0.8833333333333333
+    },
+    {
+      "fpr": 0.0,
+      "th": 85,
+      "tpr": 0.8666666666666667
+    },
+    {
+      "fpr": 0.0,
+      "th": 90,
+      "tpr": 0.8333333333333334
+    },
+    {
+      "fpr": 0.0,
+      "th": 95,
+      "tpr": 0.7666666666666667
+    },
+    {
+      "fpr": 0.0,
+      "th": 100,
+      "tpr": 0.0
+    }
+  ],
+  "score_by_condition": {
+    "CALM": {
+      "max": 84.95078705064597,
+      "mean": 18.435942686318064,
+      "median": 16.14916852110609,
+      "min": 3.0323981014737744,
+      "n": 300,
+      "p95": 32.329917452704635,
+      "sd": 7.9286971964758965
+    },
+    "ELEV": {
+      "max": 99.99963301304577,
+      "mean": 93.58435558820288,
+      "median": 99.80531309787152,
+      "min": 18.0,
+      "n": 300,
+      "p95": 99.999010122702,
+      "sd": 14.60413139685999
+    },
+    "MILD": {
+      "max": 90.23563657786792,
+      "mean": 44.529169575465815,
+      "median": 45.69290404540158,
+      "min": 8.790280203041432,
+      "n": 300,
+      "p95": 48.996603217966864,
+      "sd": 7.7788699591845765
+    },
+    "REST": {
+      "max": 83.79968439121936,
+      "mean": 4.831420927633843,
+      "median": 0.0,
+      "min": 0.0,
+      "n": 300,
+      "p95": 24.54573685292617,
+      "sd": 11.88875453850657
+    }
+  }
+}
