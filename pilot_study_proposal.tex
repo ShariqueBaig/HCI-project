@@ -72,8 +72,8 @@ The application is fully operational as a native desktop client (runnable via \t
 
 \begin{figure}[p]
     \centering
-    \includegraphics[width=0.55\textwidth,max height=0.42\textheight,keepaspectratio]{{Aura UI pictue.png}}
-    \caption{\textbf{Running Aura UI Desktop Dashboard}: Dual-column ambient computing interface featuring the live circular stress dial, raw micro-telemetry metrics (typing speed, error rate, dwell, flight latency, mouse pixels), auto-brightness controls, Focus notification status, Spotify integration, and conversational Aura co-regulation.}
+    \includegraphics[width=0.90\textwidth,max height=0.45\textheight,keepaspectratio]{docs/figures/ui_main_dashboard.png}
+    \caption{\textbf{Running Aura UI Desktop Dashboard}: Dual-column ambient computing interface featuring the live circular stress dial with active session timer (\texttt{$\bullet$ REC MM:SS}), 6-metric micro-telemetry grid, 30\,s baseline calibration, \texttt{Mode: Active (B) / Control (A)} condition toggle, Focus notification gatekeeper, Spotify integration, Firebase cloud sync status, and conversational Aura co-regulation.}
     \label{fig:main_ui}
     \vspace{0.4cm}
 
@@ -124,8 +124,8 @@ The application is fully operational as a native desktop client (runnable via \t
 \subsection{Experimental Design \& Participants}
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt]
     \item \textbf{Design:} Within-subjects ($A/B$) counterbalanced study design to eliminate order and learning effects.
-    \item \textbf{Condition A (Control / Baseline):} Aura UI operates in passive logging mode (sensors record telemetry; no ambient screen shifts, no notification gating, no breath prompts).
-    \item \textbf{Condition B (Intervention / Aura Active):} Full ambient modulation, notification suppression during high stress, and physiological sighing availability.
+    \item \textbf{Condition A (Control / Baseline):} Toggled via \texttt{Mode: Control (A)} in Aura UI (logs hash-chained telemetry silently; suppresses ambient screen shifts, Focus Assist DND, breath prompts, audio ducking, and chat check-ins).
+    \item \textbf{Condition B (Intervention / Aura Active):} Toggled via \texttt{Mode: Active (B)} (full ambient modulation, Focus notification suppression during high stress, physiological sighing popup, and Aura AI check-ins).
     \item \textbf{Sample Size:} $N = 8 \text{ to } 12$ university students/knowledge workers undergoing computer-centric analytical problem solving.
 \end{itemize}
 
@@ -144,7 +144,7 @@ Participants perform two equivalent 12-minute cognitively demanding knowledge ta
 \toprule
 \textbf{Metric Category} & \textbf{Data Source / Instrument} & \textbf{Measurement Target} \\
 \midrule
-\textbf{Objective Telemetry} & Aura CSV Logger (\texttt{session\_log\_*.csv}) & Typing CoV, error bursts, mouse jitter, total duration in Elevated tier, time-to-recovery (seconds back to Calm). \\
+\textbf{Objective Telemetry} & Hash-Chained \texttt{ResearchCollector} (\texttt{.jsonl} $\rightarrow$ \texttt{sessions.csv} / \texttt{ticks.csv}) & Typing CoV, 5\,s rolling error bursts, mouse jitter, total duration in Elevated tier, time-to-recovery (seconds back to Calm). \\
 \textbf{Notification Dynamics} & Session Statistics / Focus Queue & Volume of notifications suppressed vs. delivered; post-stress digest engagement. \\
 \textbf{Subjective Workload} & NASA-TLX (Task Load Index) & Mental demand, temporal demand, effort, and frustration ratings (0--100 scale). \\
 \textbf{System Usability} & System Usability Scale (SUS) & Overall usability, satisfaction, and perceived intrusiveness of peripheral cues. \\
@@ -156,7 +156,7 @@ Participants perform two equivalent 12-minute cognitively demanding knowledge ta
 
 \subsection{Step-by-Step Pilot Procedure}
 \begin{enumerate}[leftmargin=1.5em, itemsep=3pt]
-    \item \textbf{Briefing \& Calibration (3 mins):} Transparent briefing confirming privacy preservation (keystroke content is neither observed nor stored). The user executes Aura's 30-second typing baseline calibration.
+    \item \textbf{Briefing \& Calibration (3 mins):} Transparent briefing confirming privacy preservation (consent saved in \texttt{Privacy} under participant code; keystroke content is never observed or stored). The participant completes Aura's 30-second resting Baseline Calibration modal.
     \item \textbf{Task Session 1 (12 mins):} Participant conducts Task 1 under assigned condition ($A$ or $B$) with active background telemetry logging.
     \item \textbf{Mid-Study Assessment (3 mins):} Participant completes NASA-TLX for Session 1.
     \item \textbf{Task Session 2 (12 mins):} Participant conducts Task 2 under the alternate condition (counterbalanced) with active telemetry logging.

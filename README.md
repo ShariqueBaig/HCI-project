@@ -192,14 +192,17 @@ service cloud.firestore {
 ```
 
 Full walkthrough with a troubleshooting table: **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
+For the complete illustrated application, setup, and testing guide (with UI screenshots), see **[AURA_UI_GUIDE.tex](AURA_UI_GUIDE.tex)**.
 The **Web API key is public by design** — it identifies the project, not a user; the
 rules above are what grant access. Each session becomes one document
 `aura_sessions/{pseudonym}_{session_id}` holding the summary plus a `tick_data` array of
-numeric per-tick rows. Offline or failed uploads stay queued locally and retry every
-5 minutes; nothing is deleted until a push succeeds. The salt, participant code, journal
-and any keystroke content are never uploaded; the journal note and its reflection are,
-under the same pseudonym. Free tier: 20K writes/day (one write per session) and 50K
-reads/day.
+numeric per-tick rows (automatically downsampled to at most 800 evenly spaced points while
+preserving the start, peak-stress, and end ticks so long sessions stay safely below Firestore's
+1 MiB document limit; full 3 Hz data stays in the local `.jsonl` file). Offline or failed
+uploads stay queued locally and retry every 5 minutes; nothing is deleted until a push
+succeeds. The salt, participant code, journal and any keystroke content are never uploaded;
+the journal note and its reflection are, under the same pseudonym. Free tier: 20K writes/day
+(one write per session) and 50K reads/day.
 
 The app shows this live in the **Cloud sync** row of the main window: queued count, and
 the last upload error when something fails. Withdrawing consent erases the participant's
@@ -253,9 +256,9 @@ consent, recording and Spotify steps in one page.
 ## 📊 Session Visualization & Evaluation
 
 To generate session charts from recorded telemetry sessions:
-1. Enable **Record session** in the Aura UI or run a test.
+1. Give consent under **Privacy**, select your study mode (**Mode: Active (B)** or **Mode: Control (A)**), enable **Record session**, and stop recording via the **Journal**.
 2. Run the visualizer:
 ```bash
-python plot_session.py
+python plot_session.py [path/to/session.jsonl | ticks.csv | session_log_xxx.csv]
 ```
-This produces high-resolution session charts (`aura_session_chart.png`) illustrating stress dynamics, interventions, and recovery curves.
+With no file argument, `plot_session.py` automatically loads the newest non-empty research `.jsonl` session in `data/sessions/` (or legacy `session_log_*.csv`) and produces high-resolution charts (`aura_session_chart_real.png` and `aura_session_chart_poster.png`) illustrating stress dynamics, interventions, and recovery curves.

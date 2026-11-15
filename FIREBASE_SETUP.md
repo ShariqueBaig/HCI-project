@@ -122,8 +122,11 @@ python -m backend.firebase_sync --push
 Expected: `push : {'uploaded': 1, 'failed': 0, 'errors': []}`.
 
 Open **Firestore Database → Data → `aura_sessions`** — you should see one document
-named `{pseudonym}_{session_id}` containing the summary fields and a `tick_data` array
-of per-tick rows.
+named `{pseudonym}_{session_id}` containing the summary fields, sampling metadata
+(`tick_sampled`, `tick_stride`), and a `tick_data` array of per-tick rows (sessions longer
+than 800 ticks are automatically downsampled for cloud upload while preserving start, peak,
+and end ticks so documents stay safely below Firestore's 1 MiB limit; local `.jsonl` files
+keep every 3 Hz tick).
 
 After that the app syncs by itself: on launch, after each session closes, and every
 5 minutes for anything queued. A file is only marked `.synced` after a confirmed write,
