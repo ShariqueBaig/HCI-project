@@ -37,8 +37,8 @@ A lightweight, privacy-preserving desktop ambient computing system that continuo
 - **Interactive Breathing Guide**: An animated, science-backed physiological sighing popup (double inhale + extended exhale) triggered on prolonged elevated stress or on-demand.
 
 ### 5. Empathetic LLM Co-Regulation & Reflection ("Aura Chat")
-- **OpenRouter Integration**: Powered by OpenRouter chat completions (`nvidia/nemotron-3.5-super-vl:free` or any configured model) using lightweight zero-dependency standard library requests.
-- **Proactive Check-Ins**: Gently prompts the user when sustained frustration is detected without being intrusive.
+- **Multi-Model OpenRouter Integration + Built-In Local Coach**: Powered by OpenRouter chat completions with automatic failover across multiple free models (`nvidia/nemotron-3-super-120b-a12b:free`, `meta-llama/llama-3.3-70b-instruct:free`, `google/gemma-3-27b-it:free`, `openrouter/free`) and a context-aware built-in empathetic coach fallback so check-ins and chat work 100% of the time even offline or without `secrets.json`.
+- **Proactive Check-Ins**: Gently prompts the user after 8 seconds of sustained Elevated stress (or 3 seconds in Demo / Simulate Stress mode) without being intrusive.
 - **Session Journal & Metacognitive Mirror**: Aggregates session telemetry (durations, peak stress timestamps, intervention counts) and generates personalized reflections and takeaways. Keystrokes are **never** recorded or transmitted—only anonymous aggregate metrics.
 
 ### 6. Interactive Demo & Session Analysis
@@ -230,9 +230,11 @@ Firestore rules, not by the key) and the Spotify Client ID (PKCE needs no client
 first launch it signs in to Firebase anonymously, so every copy gets its own identity and
 starts syncing with nothing to configure.
 
-**The one exception - Aura chat.** An OpenRouter key is a real secret billed to whoever owns
-it, so it is *never* compiled in. Without one the app runs normally and the chat panel says
-it needs a key. To enable it, put a `secrets.json` beside the exe:
+**Aura chat in standalone builds:** An OpenRouter key is a real secret billed to whoever owns
+it, so it is *never* compiled in. Without `secrets.json`, Aura Chat automatically uses its
+built-in context-aware empathetic coach so proactive check-ins and reflection still work out
+of the box for every tester. To upgrade a standalone copy to cloud LLM responses, place a
+`secrets.json` beside the exe:
 
 ```json
 { "openrouter_api_key": "sk-or-..." }

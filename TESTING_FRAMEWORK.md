@@ -83,7 +83,7 @@ Before starting each 12-minute session, verify the checkboxes in the Aura UI win
 ## 5. Step-by-Step Controlled Lab Protocol (~35 Minutes per Participant)
 
 ### Preparation (Before Participant Arrives)
-1. Ensure you are on the branch containing the research pipeline (`git checkout barkhi`).
+1. Ensure you are on the `main` branch (`git checkout main`).
 2. Launch Aura UI:
    ```powershell
    python run.py
@@ -132,19 +132,19 @@ Before starting each 12-minute session, verify the checkboxes in the Aura UI win
 ---
 
 ### Phase 4: Task Session 2 — Counterbalanced Condition (12 Minutes)
-1. **Switch Condition:** Toggle **`Auto-adjust brightness`** and **`Focus mode`** to the opposite condition.
-2. **Start Recording:** Tick **`Record session`** to open a new session file.
+1. **Switch Condition:** Click the **`Mode: Active (B)` / `Mode: Control (A)`** button to switch to the opposite condition.
+2. **Start Recording:** Tick **`Record session`** to open a new session file (`● Rec 00:00`).
 3. **Run Task 2 (12:00 timer):**
    * Have the participant complete the second equivalent cognitive task.
    * Inject the same 3 controlled notifications at **3:00**, **6:00**, and **9:00**.
-   * In **Condition B**, if the physiological sighing prompt (`Take 60s to breathe`) triggers during sustained elevated stress, allow the participant to follow the 3-cycle guided breathwork.
+   * In **Condition B**, if the physiological sighing prompt (`Take 60s to breathe`) or proactive **Aura AI Check-In** triggers during sustained elevated stress (after 8 seconds in Elevated), allow the participant to interact with the breathing guide or brief reflection.
 
 ---
 
 ### Phase 5: Closing Session 2 & Post-Study Questionnaires (5 Minutes)
-1. **Close Session 2 via the Journal:**
-   * Click **`Journal`** $\longrightarrow$ have the participant set **Perceived stress (0–10)** and **Mood (0–10)** $\longrightarrow$ label the note (`Condition B - Task 2` or `Condition A - Task 2`) $\longrightarrow$ click **`Save entry`**.
-   * Uncheck **`Record session`**.
+1. **Stop Recording & Save Self-Report in the Journal:**
+   * At the `12:00` mark, **uncheck `Record session`** (which automatically opens the **Session Journal**).
+   * Have the participant set **Perceived stress (0–10)** and **Mood (0–10)**, optionally add a brief note or click **`Reflect with Aura`**, and click **`Save entry`**.
 2. **Administer NASA-TLX #2:** Complete NASA-TLX for Session 2.
 3. **Administer System Usability Scale (SUS):** Have the participant complete the 10-item SUS questionnaire (1 = Strongly Disagree to 5 = Strongly Agree) evaluating Aura UI.
 4. **Semi-Structured Debrief Interview (3 Questions):**
