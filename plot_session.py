@@ -56,7 +56,9 @@ if args:
     rows = _load_rows(path)
 else:
     candidates = sorted(
-        research.list_sessions() + glob.glob(os.path.join(HERE, 'session_log_*.csv')),
+        research.list_sessions()
+        + glob.glob(os.path.join(HERE, 'session_log_*.csv'))
+        + glob.glob(os.path.join(HERE, 'Phase_1_Submission', 'session_log_*.csv')),
         key=os.path.getmtime,
         reverse=True,
     )

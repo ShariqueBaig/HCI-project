@@ -3,12 +3,14 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[margin=0.85in]{geometry}
+\setlength{\emergencystretch}{3em}
 \usepackage{amsmath,amsfonts,amssymb}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{array}
 \usepackage{graphicx}
 \usepackage[export]{adjustbox}
+\usepackage{caption}
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{enumitem}
@@ -56,8 +58,8 @@
 }
 
 \author{
-    \textbf{Course:} Human-Computer Interaction (HCI) \quad $\cdot$ \quad
-    \textbf{Institution:} Institute of Business Administration (IBA) \\[0.2cm]
+    \textbf{Course:} Human-Computer Interaction (HCI) \\[0.12cm]
+    \textbf{Institution:} Institute of Business Administration (IBA) \\[0.15cm]
     \textbf{Team:} Sharique Baig \quad $\cdot$ \quad Maira Aijaz \quad $\cdot$ \quad Barkhi Khan \\[0.15cm]
     \small Repository: \url{https://github.com/ShariqueBaig/HCI-project}
 }
@@ -85,12 +87,12 @@ Aura UI implements Mark Weiser and John Seely Brown's paradigm of \textbf{Calm T
 \subsection{End-to-End Processing Pipeline}
 Every 333\,ms (3\,Hz), the application runs a clean, local pipeline across six modular components:
 \begin{enumerate}[leftmargin=1.6em, itemsep=2pt]
-    \item \textbf{\texttt{TelemetryDaemon} (\texttt{backend/telemetry\_daemon.py}):} Uses \texttt{pynput} global hooks over a rolling 5-second sliding window to compute timing statistics: keys per second, backspace error rate, mean key dwell duration, mean/std keystroke flight latency (matching press/release events via physical virtual-key identifiers), mouse pixel distance, and click count. Characters and key labels are discarded immediately in memory.
-    \item \textbf{\texttt{StressEngine} (\texttt{run.py}):} Normalizes typing Coefficient of Variation ($\text{CoV} = \sigma_{\text{flight}} / \mu_{\text{flight}}$ when $\text{flight\_count} \ge 3$), backspace error rate, heavy-press dwell penalty ($>150$\,ms), and rapid mouse agitation ($>10{,}000$\,px / 5\,s), subtracts optional personal baseline values, applies exponential smoothing ($\alpha = 0.18$), and releases smoothly during rest via a proportional + linear decay curve ($\approx 2.0$\,s recovery from Elevated to Calm).
-    \item \textbf{\texttt{OSController} (\texttt{backend/os\_controller.py}):} Modulates display backlight via \texttt{screen\_brightness\_control}, shifts monitor Kelvin warmth smoothly down to 3500\,K via Windows GDI gamma ramps, and toggles native Windows Focus Assist (WNF state) during \textit{Elevated} episodes.
-    \item \textbf{\texttt{SpotifyController} (\texttt{backend/spotify\_controller.py}):} Optional PKCE OAuth link (no client secret needed) that displays playback status and smoothly ducks music volume when stress escalates.
-    \item \textbf{\texttt{LLMController} (\texttt{backend/llm\_controller.py}):} Runs proactive 1--2 sentence empathetic check-ins and post-session reflections via OpenRouter with automatic failover across four free models plus a context-aware built-in local coach so chat works offline or without API keys.
-    \item \textbf{\texttt{ResearchCollector} \& \texttt{FirebaseSync} (\texttt{backend/research.py}, \texttt{backend/firebase\_sync.py}):} Consent-gated, salted-SHA-256 pseudonymous, hash-chained JSONL recording stored locally in \texttt{data/sessions/} with automatic background upload to Cloud Firestore (downsampling \texttt{tick\_data} to $\le 800$ representative points for long sessions to stay safely below Firestore's 1\,MiB document cap).
+    \item \textbf{\texttt{TelemetryDaemon}} (\path{backend/telemetry_daemon.py})\textbf{:} Uses \texttt{pynput} global hooks over a rolling 5-second sliding window to compute timing statistics: keys per second, backspace error rate, mean key dwell duration, mean/std keystroke flight latency (matching press/release events via physical virtual-key identifiers), mouse pixel distance, and click count. Characters and key labels are discarded immediately in memory.
+    \item \textbf{\texttt{StressEngine}} (\path{run.py})\textbf{:} Normalizes typing Coefficient of Variation ($\text{CoV} = \sigma_{\text{flight}} / \mu_{\text{flight}}$ when $\text{flight\_count} \ge 3$), backspace error rate, heavy-press dwell penalty ($>150$\,ms), and rapid mouse agitation ($>10{,}000$\,px / 5\,s), subtracts optional personal baseline values, applies exponential smoothing ($\alpha = 0.18$), and releases smoothly during rest via a proportional + linear decay curve ($\approx 2.0$\,s recovery from Elevated to Calm).
+    \item \textbf{\texttt{OSController}} (\path{backend/os_controller.py})\textbf{:} Modulates display backlight via \path{screen_brightness_control}, shifts monitor Kelvin warmth smoothly down to 3500\,K via Windows GDI gamma ramps, and toggles native Windows Focus Assist (WNF state) during \textit{Elevated} episodes.
+    \item \textbf{\texttt{SpotifyController}} (\path{backend/spotify_controller.py})\textbf{:} Optional PKCE OAuth link (no client secret needed) that displays playback status and smoothly ducks music volume when stress escalates.
+    \item \textbf{\texttt{LLMController}} (\path{backend/llm_controller.py})\textbf{:} Runs proactive 1--2 sentence empathetic check-ins and post-session reflections via OpenRouter with automatic failover across four free models plus a context-aware built-in local coach so chat works offline or without API keys.
+    \item \textbf{\texttt{ResearchCollector} \& \texttt{FirebaseSync}} (\path{backend/research.py}, \path{backend/firebase_sync.py})\textbf{:} Consent-gated, salted-SHA-256 pseudonymous, hash-chained JSONL recording stored locally in \path{data/sessions/} with automatic background upload to Cloud Firestore (downsampling \path{tick_data} to $\le 800$ representative points for long sessions to stay safely below Firestore's 1\,MiB document cap).
 \end{enumerate}
 
 \subsection{Adaptive Stress Tiers \& Hysteresis}
@@ -129,23 +131,24 @@ When launched (\texttt{python run.py} or \texttt{AuraUI.exe}), the widget displa
 
 \begin{figure}[htbp]
     \centering
+    \captionsetup{font=small,justification=raggedright,singlelinecheck=false}
     \begin{minipage}[t]{0.31\textwidth}
-        \centering
-        \includegraphics[width=\linewidth,max height=0.25\textheight,keepaspectratio]{{"mild stress.png"}}
+        \centering\raggedright\small
+        \includegraphics[width=\linewidth,max height=0.25\textheight,keepaspectratio]{docs/figures/mild_stress.png}
         \caption{\textbf{Tier 1 (Mild, 42/100):} Amber dial; display eases toward 65\% and 5000\,K.}
         \label{fig:mild_ui}
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.31\textwidth}
-        \centering
-        \includegraphics[width=\linewidth,max height=0.25\textheight,keepaspectratio]{{"elevated stress.png"}}
+        \centering\raggedright\small
+        \includegraphics[width=\linewidth,max height=0.25\textheight,keepaspectratio]{docs/figures/elevated_stress.png}
         \caption{\textbf{Tier 2 (Elevated, 61/100):} Rose dial; Focus mode blocking alerts at 3500\,K.}
         \label{fig:elev_ui}
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.31\textwidth}
-        \centering
-        \includegraphics[width=\linewidth,max height=0.25\textheight,keepaspectratio]{{"breathing screen.png"}}
+        \centering\raggedright\small
+        \includegraphics[width=\linewidth,max height=0.25\textheight,keepaspectratio]{docs/figures/breathing_screen.png}
         \caption{\textbf{Breathing Guide:} Physiological sigh (1.5\,s + 0.5\,s inhale, 6\,s exhale).}
         \label{fig:breath_ui}
     \end{minipage}
@@ -155,7 +158,7 @@ When launched (\texttt{python run.py} or \texttt{AuraUI.exe}), the widget displa
 \begin{table}[htbp]
 \centering
 \scriptsize
-\begin{tabularx}{\textwidth}{l l X}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.1cm} >{\raggedright\arraybackslash}p{3.6cm} >{\raggedright\arraybackslash}X}
 \toprule
 \textbf{Section} & \textbf{UI Element} & \textbf{Purpose \& Behavior} \\
 \midrule
@@ -236,9 +239,9 @@ This produces a single \texttt{dist/AuraUI.exe} binary. \texttt{aura\_defaults.j
 
 \subsection{Optional Secrets (\texttt{secrets.json} \& \texttt{firebase\_config.json})}
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt]
-    \item \textbf{Aura Cloud LLM (OpenRouter):} Copy \texttt{secrets.example.json} to \texttt{secrets.json} and add \texttt{"openrouter\_api\_key": "sk-or-..."} (or set \texttt{OPENROUTER\_API\_KEY}). The controller tries four free OpenRouter models in sequence (\texttt{nvidia/nemotron-3-super-120b-a12b:free}, \texttt{meta-llama/llama-3.3-70b-instruct:free}, \texttt{google/gemma-3-27b-it:free}, \texttt{openrouter/free}) and falls back seamlessly to its built-in empathetic local coach if offline or if no key is provided.
-    \item \textbf{Spotify:} In the app, click \uictrl{Connect Spotify} under Music and sign in via browser PKCE (redirect URI \texttt{http://127.0.0.1:8080}).
-    \item \textbf{Firebase Firestore Sync:} Already enabled via \texttt{aura\_defaults.json} (or override with \texttt{firebase\_config.json}; see \texttt{FIREBASE\_SETUP.md}). Verify anytime with \texttt{python -m backend.firebase\_sync --check}.
+    \item \textbf{Aura Cloud LLM (OpenRouter):} Copy \path{secrets.example.json} to \path{secrets.json} and add \texttt{"openrouter\_api\_key": "sk-or-..."} (or set \path{OPENROUTER_API_KEY}). The controller tries four free OpenRouter models in sequence (\path{nvidia/nemotron-3-super-120b-a12b:free}, \path{meta-llama/llama-3.3-70b-instruct:free}, \path{google/gemma-3-27b-it:free}, \path{openrouter/free}) and falls back seamlessly to its built-in empathetic local coach if offline or if no key is provided.
+    \item \textbf{Spotify:} In the app, click \uictrl{Connect Spotify} under Music and sign in via browser PKCE (redirect URI \path{http://127.0.0.1:8080}).
+    \item \textbf{Firebase Firestore Sync:} Already enabled via \path{aura_defaults.json} (or override with \path{firebase_config.json}; see \path{docs/FIREBASE_SETUP.md}). Verify anytime with \texttt{python -m} \path{backend.firebase_sync} \texttt{{-}{-}check}.
 \end{itemize}
 
 % ============================================================================
@@ -260,7 +263,7 @@ Anyone testing Aura UI for the first time can observe every feature working end-
 \end{enumerate}
 
 % ============================================================================
-\section{Human-Subjects Pilot Testing Protocol (35 Min, $N = 8$--$12$)}
+\section{Human-Subjects Pilot Testing Protocol (35 Min, \texorpdfstring{$N = 8$--$12$}{N = 8--12})}
 % ============================================================================
 
 To evaluate construct validity ($H_4$), workload reduction ($H_1$), recovery speed ($H_2$), and system usability ($H_3$), run a counterbalanced within-subjects ($A/B$) study comparing \textbf{Condition A (Control: \uictrl{Mode: Control (A)})} against \textbf{Condition B (Intervention: \uictrl{Mode: Active (B)})} across two equivalent 12-minute cognitive stressor tasks (e.g., timed debugging + timed analytical writing).
@@ -268,7 +271,7 @@ To evaluate construct validity ($H_4$), workload reduction ($H_1$), recovery spe
 \begin{table}[htbp]
 \centering
 \small
-\begin{tabularx}{\textwidth}{l l c l c l}
+\begin{tabularx}{\textwidth}{l l c l c >{\raggedright\arraybackslash}X}
 \toprule
 \textbf{Participant} & \textbf{Session 1 Code} & \textbf{Condition} & \textbf{Task} & \textbf{Session 2 Code} & \textbf{Condition / Task} \\
 \midrule
@@ -296,7 +299,7 @@ P04, P08, P12 & \texttt{P04-B}, \dots & Active (B) & Task 2 & \texttt{P04-A}, \d
 \section{Instrument Validation \& Data Analysis Playbook}
 % ============================================================================
 
-Prior to human testing, the scoring instrument was benchmarked over 1,200 ticks (400\,s balanced protocol across REST, CALM, MILD, and ELEV blocks, \texttt{experiments/run\_experiment.py}):
+Prior to human testing, the scoring instrument was benchmarked over 1,200 ticks (400\,s balanced protocol across REST, CALM, MILD, and ELEV blocks, \path{experiments/run_experiment.py}):
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt]
     \item \textbf{Three-Class Accuracy:} \textbf{93.3\%} overall (1,120 / 1,200 ticks), with 91.3\%--95.3\% accuracy per regime.
     \item \textbf{ROC Discrimination:} \textbf{AUC = 0.994}; deployed threshold ($\ge 60$) achieves \textbf{95.0\% recall} at just \textbf{1.2\% false-positive rate}.
@@ -306,23 +309,24 @@ Prior to human testing, the scoring instrument was benchmarked over 1,200 ticks 
 
 \begin{figure}[htbp]
     \centering
+    \captionsetup{font=small,justification=raggedright,singlelinecheck=false}
     \begin{minipage}[t]{0.32\textwidth}
-        \centering
+        \centering\raggedright\small
         \includegraphics[width=\linewidth,max height=0.22\textheight,keepaspectratio]{Phase_2_Submission/figures/f2_score_by_condition.png}
         \caption{\textbf{Score Distribution:} Clean separation across REST, CALM, MILD, and ELEV regimes.}
         \label{fig:val_dist}
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.32\textwidth}
-        \centering
+        \centering\raggedright\small
         \includegraphics[width=\linewidth,max height=0.22\textheight,keepaspectratio]{Phase_2_Submission/figures/f3_confusion.png}
         \caption{\textbf{Tier Confusion Matrix:} 91.3\%--95.3\% class alignment across all four states.}
         \label{fig:val_conf}
     \end{minipage}
     \hfill
     \begin{minipage}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\linewidth,max height=0.22\textheight,keepaspectratio]{aura_session_chart_poster.png}
+        \centering\raggedright\small
+        \includegraphics[width=\linewidth,max height=0.22\textheight,keepaspectratio]{docs/figures/aura_session_chart_poster.png}
         \caption{\textbf{Live Recovery Curve:} Soothe dimming, breathing prompt, and Calm recovery.}
         \label{fig:val_live}
     \end{minipage}
@@ -330,16 +334,20 @@ Prior to human testing, the scoring instrument was benchmarked over 1,200 ticks 
 
 \subsection{Post-Study Export, Audit \& Plotting Commands}
 After running pilot sessions, verify cryptographic integrity, export de-identified CSVs, and render timeline plots with three commands:
+\begingroup\small
 \begin{verbatim}
 # 1. Verify tamper-evident SHA-256 hash chains across all sessions
-python -c "from backend import research; import json; print(json.dumps(research.audit(), indent=2))"
+python -c "from backend import research; import json;
+print(json.dumps(research.audit(), indent=2))"
 
-# 2. Export de-identified summary (sessions.csv) and 3 Hz tick rows (ticks.csv)
-python -c "from backend import research; print(research.export_dataset('human_pilot_export'))"
+# 2. Export de-identified summary (sessions.csv) and 3 Hz ticks.csv
+python -c "from backend import research;
+print(research.export_dataset('human_pilot_export'))"
 
-# 3. Generate publication-ready PNGs from the newest .jsonl session (or pass path)
-python plot_session.py [optional/path/to/session.jsonl] [--start 0 --end 720]
+# 3. Generate publication-ready PNGs from newest .jsonl (or pass path)
+python plot_session.py [path/to/session.jsonl] [--start 0 --end 720]
 \end{verbatim}
+\endgroup
 
 \notebox{Troubleshooting Tip}{If \texttt{research.audit()} returns an empty session list after field testing on multiple laptops, check the Cloud Sync status in Aura UI (\texttt{everything uploaded}) and inspect the \texttt{aura\_sessions} collection in the Firebase Console; if running offline, copy the participant's \texttt{data/sessions/} folder into the local workspace before calling \texttt{export\_dataset()}.}
 

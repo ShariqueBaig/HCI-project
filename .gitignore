@@ -21,6 +21,8 @@ firebase_config.json
 *.aux
 *.log
 *.out
+*.toc
+*.synctex*
 *.fls
 *.fdb_latexmk
 

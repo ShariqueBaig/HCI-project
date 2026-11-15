@@ -97,7 +97,7 @@ in a frozen build. Set `AURA_DATA_DIR` to override; a pip-installed copy default
 
 To enable Spotify auto-lowering and the Aura LLM chat assistant, configure your API keys:
 
-1. Copy [`secrets.example.json`](file:///d:/OneDrive%20-%20Institute%20of%20Business%20Administration/Sharique/sem7/HCI/HCI%20project/secrets.example.json) to `secrets.json`:
+1. Copy [secrets.example.json](secrets.example.json) to `secrets.json`:
    ```bash
    cp secrets.example.json secrets.json
    ```
@@ -159,7 +159,7 @@ the **Journal** opens automatically so you can set *Perceived stress (0–10)* a
 and click **Save entry** to finalize the session with your self-report attached.
 
 For the full human-subjects study protocol, counterbalancing matrix, and analysis guide,
-see **[TESTING_FRAMEWORK.md](TESTING_FRAMEWORK.md)**.
+see **[docs/TESTING_FRAMEWORK.md](docs/TESTING_FRAMEWORK.md)**.
 
 ### Cloud sync to Firebase (optional, off by default)
 
@@ -191,8 +191,8 @@ service cloud.firestore {
 }
 ```
 
-Full walkthrough with a troubleshooting table: **[FIREBASE_SETUP.md](FIREBASE_SETUP.md)**.
-For the complete illustrated application, setup, and testing guide (with UI screenshots), see **[AURA_UI_GUIDE.tex](AURA_UI_GUIDE.tex)**.
+Full walkthrough with a troubleshooting table: **[docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)**.
+For the complete illustrated application, setup, and testing guide (with UI screenshots), see **[AURA_UI_GUIDE.pdf](AURA_UI_GUIDE.pdf)** (LaTeX source: [AURA_UI_GUIDE.tex](AURA_UI_GUIDE.tex)).
 The **Web API key is public by design** — it identifies the project, not a user; the
 rules above are what grant access. Each session becomes one document
 `aura_sessions/{pseudonym}_{session_id}` holding the summary plus a `tick_data` array of
@@ -248,7 +248,7 @@ Settings, journal, `.cache` and the `data/` research store are created beside th
 
 ---
 
-**Handing the exe to testers?** Give them [TESTER_NOTES.md](TESTER_NOTES.md) — SmartScreen,
+**Handing the exe to testers?** Give them [docs/TESTER_NOTES.md](docs/TESTER_NOTES.md) — SmartScreen,
 consent, recording and Spotify steps in one page.
 
 ---
@@ -262,3 +262,23 @@ To generate session charts from recorded telemetry sessions:
 python plot_session.py [path/to/session.jsonl | ticks.csv | session_log_xxx.csv]
 ```
 With no file argument, `plot_session.py` automatically loads the newest non-empty research `.jsonl` session in `data/sessions/` (or legacy `session_log_*.csv`) and produces high-resolution charts (`aura_session_chart_real.png` and `aura_session_chart_poster.png`) illustrating stress dynamics, interventions, and recovery curves.
+
+---
+
+## 📁 Project Structure
+
+```text
+HCI project/
+├── run.py                          # Desktop application & StressEngine entrypoint
+├── plot_session.py                 # Session timeline chart generator (.jsonl / .csv)
+├── aura_defaults.json              # Bundled public Firebase & Spotify PKCE identifiers
+├── firebase_config.example.json    # Optional custom Firebase config template
+├── secrets.example.json            # Optional OpenRouter API key template
+├── pyproject.toml / requirements.txt
+├── AURA_UI_GUIDE.pdf / .tex        # Complete illustrated user, developer & testing manual
+├── backend/                        # Core telemetry, OS, Spotify, LLM, research & sync modules
+├── docs/                           # Guides (TESTING_FRAMEWORK, FIREBASE_SETUP, TESTER_NOTES) & UI figures/
+├── experiments/                    # Phase 2 synthetic benchmark & validation harness
+├── Phase_1_Submission/             # Self-contained Phase 1 proposal, slides, demo media & logs
+└── Phase_2_Submission/             # Self-contained Phase 2 validation report, data & figures
+```
