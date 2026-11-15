@@ -1324,7 +1324,7 @@ class AmbientApp:
 
     def _chat_request(self, text, fallback):
         """Run an AI call off the UI thread; reply is posted back via after()."""
-        self.chat_send_btn.config(state='disabled')
+        self.chat_send_btn.config(state='disabled', text='...')
         note = self._stress_note()
 
         def work():
@@ -1332,12 +1332,12 @@ class AmbientApp:
                 reply, tag = self.llm.chat(text, note), 'aura'
             except Exception as e:
                 print('[Aura UI] AI error:', e)
-                reply, tag = fallback, 'note'
+                reply, tag = fallback, 'aura'
             def done():
                 if self._chat_gen != gen:
                     return           # chat was dismissed while waiting
                 self._chat_add(tag, reply)
-                self.chat_send_btn.config(state='normal')
+                self.chat_send_btn.config(state='normal', text='Send')
             self.root.after(0, done)
         gen = self._chat_gen
         threading.Thread(target=work, daemon=True).start()
@@ -1365,7 +1365,7 @@ class AmbientApp:
         self.chat_log.delete('1.0', 'end')
         self.chat_log.config(state='disabled')
         if self.llm.available:
-            self.chat_send_btn.config(state='normal')
+            self.chat_send_btn.config(state='normal', text='Send')
         self._elevated_since = None
         self._last_checkin = time.time()
 
@@ -1468,7 +1468,10 @@ class AmbientApp:
         self.root.attributes('-topmost', self.always_top.get())
 
     def _simulate(self):
-        self._sim_ticks = 25
+        self._sim_ticks = 30
+        self._elevated_since = None
+        self._last_checkin = 0.0
+        self._last_popup_time = 0.0
         self.sim_btn.config(state='disabled', text='Simulating...')
 
     # ------- poll loop (runs on main thread via after) -----------------------
@@ -1875,15 +1878,16 @@ class AmbientApp:
                   ('standing by' if self.focus_mode.get() else 'off')),
             fg=MILD if self._is_control() else (ELEV if blocking else MUTED))
 
-        # --- Aura check-in: Elevated for 10 s straight, then at most once per 5 min
+        # --- Aura check-in: Elevated for 8 s straight (3 s in demo/simulate), at most once per 5 min
         if self.engine.tier == 2 and not self._is_control():
             if self._elevated_since is None:
                 self._elevated_since = time.time()
-            elif ((self.llm.available or self._demo_target is not None)
-                  and time.time() - self._elevated_since > (3 if self._demo_target is not None else 10)
-                  and time.time() - self._last_checkin > 300):
-                self._last_checkin = time.time()
-                self._chat_check_in()
+            else:
+                wait_s = 3 if (self._demo_target is not None or self._sim_ticks > 0) else 8
+                if (time.time() - self._elevated_since > wait_s
+                        and time.time() - self._last_checkin > 300):
+                    self._last_checkin = time.time()
+                    self._chat_check_in()
         else:
             self._elevated_since = None
 
