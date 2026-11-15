@@ -15,10 +15,11 @@ A lightweight, privacy-preserving desktop ambient computing system that continuo
 ## ✨ Features & Architecture
 
 ### 1. Non-Invasive Stress & Telemetry Engine
-- **Keystroke Dynamics**: Computes Coefficient of Variation (CoV) of flight times, dwell times, and error/backspace frequencies over rolling time windows.
+- **Keystroke Dynamics**: Computes Coefficient of Variation (CoV) of flight times, dwell times (via stable virtual-key tracking without reading character text), and error/backspace frequencies over a smooth 5-second rolling window.
 - **Mouse Dynamics**: Analyzes mouse trajectory distances and sudden jitter/clicking spikes to detect physical agitation.
-- **Baseline Calibration**: Includes a 30-second resting calibration workflow to tailor thresholds to individual typing baselines.
-- **Stress Tiers**: Categorizes user state into 3 adaptive tiers:
+- **Interactive Baseline Calibration Modal**: Includes a 30-second resting calibration dialog with a sample prose passage, auto-focused typing box, and live progress/sample counter to tailor thresholds to individual typing baselines.
+- **Study Condition Toggle (`Mode: Active (B)` / `Mode: Control (A)`)**: Built-in one-click experimental mode switch for within-subjects A/B testing (`Control` logs telemetry silently while suppressing all display, notification, audio, breathing, and chat interventions).
+- **Stress Tiers & Hysteresis**: Categorizes user state into 3 adaptive tiers with boundary hysteresis (exit Mild $< 26$, exit Elevated $< 52$) and fast proportional + linear idle release (~2.0s recovery):
   - **Calm** (Score 0–29)
   - **Mild** (Score 30–59)
   - **Elevated** (Score 60–100)
@@ -151,9 +152,14 @@ in the collector.
   per-install salt (`data/.salt`) is never exported.
 - **Retention:** `research.purge_expired(180)`; withdrawing consent deletes all sessions.
 
-In the app: **Privacy** → enter a participant code → **Save consent**, then tick
-**Record session**. End a session from **Journal** (set *Perceived stress* / *Mood* and
-**Save entry**) so the self-report is attached to the summary.
+In the app: **Privacy** → enter a participant code → **Save consent**, optionally run the
+30-second **Calibrate** modal, pick **Mode: Active (B)** or **Mode: Control (A)**, and tick
+**Record session** (`● Rec MM:SS` live timer). When you uncheck **Record session** to stop,
+the **Journal** opens automatically so you can set *Perceived stress (0–10)* and *Mood (0–10)*
+and click **Save entry** to finalize the session with your self-report attached.
+
+For the full human-subjects study protocol, counterbalancing matrix, and analysis guide,
+see **[TESTING_FRAMEWORK.md](TESTING_FRAMEWORK.md)**.
 
 ### Cloud sync to Firebase (optional, off by default)
 

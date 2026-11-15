@@ -74,6 +74,7 @@ DEFAULTS = {
     'baseline_err': 0.0,   # calibrated resting error rate
     'is_calibrated': 0,    # 0 = never done, 1 = done
     'participant_code': '',  # research pseudonym (see backend/research.py)
+    'study_condition': 'intervention',  # 'intervention' (Active B) or 'control' (Passive A)
 }
 
 class Settings:
@@ -107,14 +108,17 @@ class StressEngine:
     def __init__(self, settings):
         self.settings = settings
         self.smoothed = 10.0
+        self._tier    = 0
 
     def update(self, features):
         kps = features.get('keys_per_second', 0)
         m_px = features.get('mouse_distance', 0)
         
         if kps < 0.2 and m_px < 3000:
-            decay = self.settings['decay_speed']*1.5
-            self.smoothed = max(0.0, self.smoothed - (decay if self.smoothed > 10 else decay * 0.2))
+            speed = self.settings['decay_speed']
+            # Proportional + linear release so Elevated stress recovers in ~3-4s instead of 15.3s
+            step = (self.smoothed * 0.14 + 2.2) * speed if self.smoothed > 10 else 0.4 * speed
+            self.smoothed = max(0.0, self.smoothed - step)
             return
             
         mf  = features.get('mean_flight', 0)
@@ -160,9 +164,25 @@ class StressEngine:
     def score(self):             return self.smoothed
     @property
     def tier(self):
-        if self.smoothed < 30: return 0
-        if self.smoothed < 60: return 1
-        return 2
+        s = self.smoothed
+        # Hysteresis prevents flickering around tier boundaries:
+        # Enter Mild at >=30, exit at <26; enter Elevated at >=60, exit at <52.
+        if self._tier == 2:
+            if s < 26:
+                self._tier = 0
+            elif s < 52:
+                self._tier = 1
+        elif self._tier == 1:
+            if s >= 60:
+                self._tier = 2
+            elif s < 26:
+                self._tier = 0
+        else:
+            if s >= 60:
+                self._tier = 2
+            elif s >= 30:
+                self._tier = 1
+        return self._tier
     @property
     def label(self):             return self.TIER_LABELS[self.tier]
     @property
@@ -412,6 +432,9 @@ class AmbientApp:
         self._calib_samples      = []    # list of (cov, err)
         self._calib_start        = 0.0
         self.CALIB_DURATION      = 30.0  # seconds
+        self._calib_win          = None
+        self._calib_prog         = None
+        self._calib_modal_lbl    = None
         self._dnd_active         = False # tracks notification muting
         # Focus mode / notifications / journal
         self.stats               = SessionStats()
@@ -506,6 +529,10 @@ class AmbientApp:
                          start=-45, extent=ext, outline=color, width=9, style='arc')
         if self._sim_ticks > 0:
             c.create_text(cx, cy-22, text='SIM', fill=MILD, font=('Arial', 7, 'bold'))
+        elif self._collector is not None:
+            el = max(0, int(time.time() - self._log_start))
+            c.create_text(cx, cy-22, text='● REC {:02d}:{:02d}'.format(el // 60, el % 60),
+                          fill=CALM, font=('Consolas', 7, 'bold'))
         # Consolas has tabular (monospace) digits — prevents vertical jitter
         # as the number changes, unlike proportional fonts like Georgia.
         c.create_text(cx, cy-4,  text=str(int(score)), fill=TEXT,  font=('Consolas', 28, 'bold'))
@@ -543,10 +570,12 @@ class AmbientApp:
                        bg=BG, fg=MUTED, selectcolor=SURF, activebackground=BG,
                        font=('Arial', 8)).pack(side='left')
         self.record_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(row2, text='Record session', variable=self.record_var,
-                       command=self._toggle_record,
-                       bg=BG, fg=MUTED, selectcolor=SURF, activebackground=BG,
-                       font=('Arial', 8)).pack(side='right')
+        self._rec_chk = tk.Checkbutton(
+            row2, text='Record session', variable=self.record_var,
+            command=self._toggle_record,
+            bg=BG, fg=MUTED, selectcolor=SURF, activebackground=BG,
+            font=('Arial', 8))
+        self._rec_chk.pack(side='right')
         tk.Button(row2, text='Privacy', command=self._open_consent, bg=BG, fg=FAINT,
                   relief='flat', font=('Arial', 8), bd=0, activebackground=BG,
                   activeforeground=CALM, cursor='hand2').pack(side='right', padx=(0, 6))
@@ -570,7 +599,7 @@ class AmbientApp:
                   font=('Arial', 9), activebackground=BORDER,
                   activeforeground=TEXT, cursor='hand2', pady=4).pack(side='right')
 
-        # Calibration row
+        # Calibration & Condition row
         cal_row = tk.Frame(self._left, bg=BG)
         cal_row.pack(fill='x', padx=20, pady=(0, 10))
         calib_color = MUTED if self.settings['is_calibrated'] else ELEV
@@ -580,11 +609,35 @@ class AmbientApp:
                                     font=('Arial', 9), activebackground=BORDER,
                                     cursor='hand2', pady=4)
         self._calib_btn.pack(side='left', fill='x', expand=True, padx=(0, 4))
-        status = '✓ Calibrated' if self.settings['is_calibrated'] else 'Not calibrated'
+        is_ctrl = (self.settings['study_condition'] == 'control')
+        self._cond_btn = tk.Button(
+            cal_row,
+            text='Mode: Control (A)' if is_ctrl else 'Mode: Active (B)',
+            command=self._toggle_condition,
+            bg=SURF, fg=MILD if is_ctrl else CALM, relief='flat',
+            font=('Arial', 8), activebackground=BORDER,
+            cursor='hand2', pady=4, padx=6)
+        self._cond_btn.pack(side='left', padx=(0, 4))
+        status = '✓ Cal' if self.settings['is_calibrated'] else 'Uncal'
         self._calib_lbl = tk.Label(cal_row, text=status, bg=BG,
                                    fg=MUTED if self.settings['is_calibrated'] else ELEV,
                                    font=('Arial', 8))
         self._calib_lbl.pack(side='right')
+
+    def _is_control(self):
+        return self.settings['study_condition'] == 'control'
+
+    def _toggle_condition(self):
+        new_cond = 'control' if not self._is_control() else 'intervention'
+        self.settings['study_condition'] = new_cond
+        is_ctrl = (new_cond == 'control')
+        self._cond_btn.config(
+            text='Mode: Control (A)' if is_ctrl else 'Mode: Active (B)',
+            fg=MILD if is_ctrl else CALM)
+        if is_ctrl:
+            self._restore_display()
+            if self._breathing_popup and self._breathing_popup.alive():
+                self._breathing_popup.close()
 
     # ------- focus mode ------------------------------------------------------
 
@@ -618,7 +671,7 @@ class AmbientApp:
                   cursor='hand2').pack(side='right', padx=(0, 4))
 
     def _blocking(self):
-        return self.focus_mode.get() and self.engine.tier == 2
+        return (not self._is_control()) and self.focus_mode.get() and self.engine.tier == 2
 
     def notify(self, app, text):
         """A (simulated) incoming notification: held back in focus mode, else delivered."""
@@ -655,7 +708,8 @@ class AmbientApp:
 
     # ------- journal ---------------------------------------------------------
 
-    def _open_journal(self):
+    def _open_journal(self, closing_session=False):
+        self._closing_via_journal = bool(closing_session or self._collector is not None)
         if self._journal_win and self._journal_win.winfo_exists():
             self._journal_win.lift()
             return
@@ -663,9 +717,13 @@ class AmbientApp:
         win.title('Aura UI  -  Journal')
         win.configure(bg=BG)
         win.resizable(False, False)
+        win.protocol('WM_DELETE_WINDOW', self._journal_close)
         self._journal_win = win
         tk.Label(win, text='Session journal', bg=BG, fg=TEXT,
                  font=('Georgia', 13)).pack(anchor='w', padx=16, pady=(14, 0))
+        if closing_session:
+            tk.Label(win, text='Session stopped \u00b7 set your 0-10 ratings and click Save entry to finalize.',
+                     bg=BG, fg=CALM, font=('Arial', 8, 'bold')).pack(anchor='w', padx=16, pady=(2, 0))
         self._j_stats = tk.Label(win, text='', bg=BG, fg=MUTED, justify='left',
                                  font=('Arial', 8))
         self._j_stats.pack(anchor='w', padx=16, pady=(2, 8))
@@ -718,7 +776,7 @@ class AmbientApp:
                                   exportselection=False)
         self._j_list.pack(fill='x', padx=16)
         self._j_list.bind('<<ListboxSelect>>', self._journal_view)
-        tk.Button(win, text='Close', command=win.destroy, bg=SURF, fg=MUTED, relief='flat',
+        tk.Button(win, text='Close', command=self._journal_close, bg=SURF, fg=MUTED, relief='flat',
                   font=('Arial', 9), activebackground=BORDER, cursor='hand2',
                   pady=4).pack(fill='x', padx=16, pady=(10, 14))
 
@@ -727,6 +785,16 @@ class AmbientApp:
         self._journal_refresh()
         win.geometry('+{}+{}'.format(self.root.winfo_x() + self.root.winfo_width() + 8,
                                      self.root.winfo_y()))
+
+    def _journal_close(self):
+        if getattr(self, '_closing_via_journal', False) and self._collector is not None:
+            self._close_log()
+        self._closing_via_journal = False
+        if self._journal_win and self._journal_win.winfo_exists():
+            try:
+                self._journal_win.destroy()
+            except Exception:
+                pass
 
     def _journal_set_refl(self, text):
         self._j_refl.config(state='normal')
@@ -781,6 +849,8 @@ class AmbientApp:
             self._collector.set_journal(entry['note'], entry['reflection'])
             self._collector.set_self_report(int(self._j_stress.get()),
                                             int(self._j_valence.get()))
+            self.record_var.set(False)
+            self._closing_via_journal = False
             self._close_log()
         else:
             # Saved without an active recording: still belongs in the dataset,
@@ -790,10 +860,8 @@ class AmbientApp:
         self._update_notif_lbl()
         self._j_note.delete('1.0', 'end')
         self._j_reflection = ''
-        self._journal_set_refl('Saved. A fresh session has started.')
+        self._journal_set_refl('Saved. Session finalized and reset.')
         self._journal_refresh()
-        if self.record_var.get():
-            self._toggle_record()
 
     def _journal_only_record(self, stats):
         """Persist a journal entry that was saved outside a recording session.
@@ -837,7 +905,11 @@ class AmbientApp:
     def _toggle_record(self):
         """Start/stop a research session. Collection is consent-gated."""
         if not self.record_var.get():
-            self._close_log()
+            if self._collector is not None:
+                self._rec_chk.config(text='● Saving...', fg=MILD)
+                self._open_journal(closing_session=True)
+            else:
+                self._close_log()
             return
         if not research.consent_status().get('granted'):
             self.record_var.set(False)
@@ -849,16 +921,23 @@ class AmbientApp:
             self._open_consent()
             return
         try:
+            cond = self.settings['study_condition'] or 'intervention'
+            self.stats.reset()
+            self._update_notif_lbl()
             self._collector = research.ResearchCollector(
-                code, tick_hz=1000.0 / self.POLL_MS, condition='field')
+                code, tick_hz=1000.0 / self.POLL_MS, condition=cond)
             self._log_start = time.time()
-            print('[Aura UI] research session ->', self._collector.session_path)
+            self._rec_chk.config(text='● Rec 00:00', fg=CALM)
+            print('[Aura UI] research session ({}) ->'.format(cond), self._collector.session_path)
         except Exception as e:
             print('[Aura UI] could not start recording:', e)
             self._collector = None
             self.record_var.set(False)
+            self._rec_chk.config(text='Record session', fg=MUTED)
 
     def _close_log(self, sync=True):
+        if hasattr(self, '_rec_chk'):
+            self._rec_chk.config(text='Record session', fg=MUTED)
         if self._collector:
             try:
                 self._collector.end(self.stats.summary())
@@ -1512,10 +1591,13 @@ class AmbientApp:
         TICK = 0.5        # seconds per tick  →  ~10 %/sec ramp rate
         current = float(self.os_ctrl.get_brightness())
         current_temp = 6500.0
+        idle_ticks = 0
         while self._running:
             time.sleep(TICK)
-            if self.auto_bright.get():
+            if self.auto_bright.get() and not self._is_control():
+                idle_ticks = 0
                 if self._orig_bright is None:      # first tick after opting in
+                    current = float(self.os_ctrl.get_brightness())
                     self._orig_bright = int(round(current))
                 target = float(self.engine.target_brightness)
                 if current != target:
@@ -1534,8 +1616,11 @@ class AmbientApp:
                     self.os_ctrl.set_color_temp(int(round(current_temp)))
                     self._display_touched = True
             else:
-                # Manual mode — observe only. Never write to the display.
-                current = float(self.os_ctrl.get_brightness())
+                # Manual / Control mode — observe only every 10s to avoid WMI stutter.
+                idle_ticks += 1
+                if idle_ticks >= 20:
+                    idle_ticks = 0
+                    current = float(self.os_ctrl.get_brightness())
                 current_temp = 6500.0
             self._last_bright = int(round(current))
 
@@ -1558,14 +1643,91 @@ class AmbientApp:
         self._refresh(features)
         self.root.after(self.POLL_MS, self._poll)
 
+    CALIB_PASSAGE = (
+        "Calm technology works quietly in the background without demanding "
+        "your constant attention. As you type at a comfortable and steady "
+        "pace, Aura UI measures only the natural rhythm between keystrokes "
+        "to establish your personal resting baseline. Take a slow breath, "
+        "keep your shoulders relaxed, and continue typing smoothly until "
+        "the thirty-second timer completes."
+    )
+
     def _start_calibration(self):
         if self._calibrating:
+            if self._calib_win and self._calib_win.winfo_exists():
+                self._calib_win.lift()
             return
         self._calibrating   = True
         self._calib_samples = []
         self._calib_start   = time.time()
         self._calib_btn.config(state='disabled', text='Calibrating... 30s')
         self._calib_lbl.config(text='Type normally', fg=CALM)
+        self._open_calibration_modal()
+
+    def _open_calibration_modal(self):
+        if self._calib_win and self._calib_win.winfo_exists():
+            self._calib_win.destroy()
+        win = tk.Toplevel(self.root)
+        win.title('Aura UI  -  Baseline Calibration')
+        win.configure(bg=BG)
+        win.resizable(False, False)
+        win.transient(self.root)
+        win.protocol('WM_DELETE_WINDOW', self._cancel_calibration)
+        self._calib_win = win
+
+        tk.Label(win, text='Baseline calibration  \u00b7  30 seconds', bg=BG, fg=TEXT,
+                 font=('Georgia', 13)).pack(anchor='w', padx=16, pady=(14, 2))
+        tk.Label(win, text='Type the passage below at your normal, relaxed pace. '
+                 'Only timing rhythm is measured \u2014 characters are never stored.',
+                 bg=BG, fg=MUTED, font=('Arial', 8), wraplength=410,
+                 justify='left').pack(anchor='w', padx=16, pady=(0, 8))
+
+        card = tk.Frame(win, bg=SURF, highlightbackground=BORDER, highlightthickness=1)
+        card.pack(fill='x', padx=16, pady=(0, 8))
+        tk.Label(card, text='Sample text to type:', bg=SURF, fg=CALM,
+                 font=('Arial', 7, 'bold')).pack(anchor='w', padx=10, pady=(8, 2))
+        tk.Label(card, text=self.CALIB_PASSAGE, bg=SURF, fg=TEXT,
+                 font=('Georgia', 10), wraplength=390, justify='left'
+                 ).pack(anchor='w', padx=10, pady=(0, 10))
+
+        tk.Label(win, text='Type here:', bg=BG, fg=MUTED,
+                 font=('Arial', 8)).pack(anchor='w', padx=16, pady=(0, 2))
+        inp = tk.Text(win, height=4, width=48, bg=SURF, fg=TEXT, relief='flat',
+                      wrap='word', font=('Arial', 10), insertbackground=TEXT,
+                      highlightbackground=CALM, highlightthickness=1, padx=8, pady=6)
+        inp.pack(fill='x', padx=16, pady=(0, 10))
+
+        self._calib_prog = tk.Canvas(win, width=410, height=6, bg=SURF,
+                                     highlightthickness=0)
+        self._calib_prog.pack(fill='x', padx=16, pady=(0, 6))
+
+        self._calib_modal_lbl = tk.Label(
+            win, text='30s remaining  \u00b7  0 rhythm samples captured',
+            bg=BG, fg=CALM, font=('Arial', 8, 'bold'))
+        self._calib_modal_lbl.pack(anchor='w', padx=16, pady=(0, 8))
+
+        tk.Button(win, text='Cancel', command=self._cancel_calibration,
+                  bg=SURF, fg=MUTED, relief='flat', font=('Arial', 9),
+                  activebackground=BORDER, cursor='hand2', pady=4
+                  ).pack(fill='x', padx=16, pady=(0, 14))
+
+        win.update_idletasks()
+        win.geometry('+{}+{}'.format(self.root.winfo_x() + self.root.winfo_width() + 8,
+                                     self.root.winfo_y()))
+        inp.focus_set()
+
+    def _cancel_calibration(self):
+        self._calibrating = False
+        if self._calib_win and self._calib_win.winfo_exists():
+            try:
+                self._calib_win.destroy()
+            except Exception:
+                pass
+        self._calib_win = None
+        calib_color = MUTED if self.settings['is_calibrated'] else ELEV
+        status = '\u2713 Calibrated' if self.settings['is_calibrated'] else 'Not calibrated'
+        self._calib_btn.config(state='normal', text='Calibrate', fg=calib_color)
+        self._calib_lbl.config(text=status, fg=calib_color)
 
     def _calibration_tick(self, features):
         elapsed   = time.time() - self._calib_start
@@ -1581,6 +1743,20 @@ class AmbientApp:
             cov = min(sf / mf, 3.0) if mf > 0 else 0
             self._calib_samples.append((cov, err))
 
+        if self._calib_win and self._calib_win.winfo_exists():
+            try:
+                prog = min(elapsed / self.CALIB_DURATION, 1.0)
+                w = self._calib_prog.winfo_width() or 410
+                self._calib_prog.delete('all')
+                self._calib_prog.create_rectangle(0, 0, int(w * prog), 6,
+                                                  fill=CALM, outline='')
+                self._calib_modal_lbl.config(
+                    text='{}s remaining  \u00b7  {} rhythm samples captured'.format(
+                        remaining, len(self._calib_samples)),
+                    fg=CALM if self._calib_samples else MILD)
+            except Exception:
+                pass
+
         if elapsed >= self.CALIB_DURATION:
             self._finish_calibration()
 
@@ -1591,11 +1767,29 @@ class AmbientApp:
             errs = [e for _, e in self._calib_samples]
             self.settings['baseline_cov'] = round(sum(covs) / len(covs), 4)
             self.settings['baseline_err'] = round(sum(errs) / len(errs), 4)
-        self.settings['is_calibrated'] = 1
-        self._calib_btn.config(state='normal', text='Calibrate', fg=MUTED)
-        self._calib_lbl.config(text='✓ Calibrated', fg=MUTED)
+            self.settings['is_calibrated'] = 1
+            self._calib_btn.config(state='normal', text='Calibrate', fg=MUTED)
+            self._calib_lbl.config(text='\u2713 Calibrated', fg=MUTED)
+            if self._calib_win and self._calib_win.winfo_exists():
+                self._calib_modal_lbl.config(
+                    text='\u2713 Calibration complete! Baseline CoV {:.2f} saved.'.format(
+                        self.settings['baseline_cov']),
+                    fg=CALM)
+                self._calib_win.after(1200, self._calib_win.destroy)
+        else:
+            calib_color = MUTED if self.settings['is_calibrated'] else ELEV
+            self._calib_btn.config(state='normal', text='Calibrate', fg=calib_color)
+            self._calib_lbl.config(text='No typing detected', fg=ELEV)
+            if self._calib_win and self._calib_win.winfo_exists():
+                self._calib_modal_lbl.config(
+                    text='Not enough typing detected \u2014 click Calibrate to try again.',
+                    fg=ELEV)
 
     def _refresh(self, feats):
+        if self._collector is not None:
+            el = max(0, int(time.time() - self._log_start))
+            self._rec_chk.config(text='\u25cf Rec {:02d}:{:02d}'.format(el // 60, el % 60),
+                                 fg=CALM)
         score = self.engine.score
         color = self.engine.color
         self._draw_gauge(score, color)
@@ -1659,7 +1853,7 @@ class AmbientApp:
             self._cloud_dot.config(fg=FAINT)
 
         # Auto-volume: set target based on current tier, loop ramps smoothly
-        if self.auto_music.get() and self.spotify.available and t:
+        if (not self._is_control()) and self.auto_music.get() and self.spotify.available and t:
             vol_keys = ['vol_calm', 'vol_mild', 'vol_elev']
             self._vol_target = self.settings[vol_keys[self.engine.tier]]
         else:
@@ -1675,12 +1869,14 @@ class AmbientApp:
             self.os_ctrl.set_dnd(False)
             self._dnd_active = False
             self._release_held()
-        self._focus_state.config(text='BLOCKING notifications' if blocking else
-                                 ('standing by' if self.focus_mode.get() else 'off'),
-                                 fg=ELEV if blocking else MUTED)
+        self._focus_state.config(
+            text='passive (Control A)' if self._is_control() else
+                 ('BLOCKING notifications' if blocking else
+                  ('standing by' if self.focus_mode.get() else 'off')),
+            fg=MILD if self._is_control() else (ELEV if blocking else MUTED))
 
         # --- Aura check-in: Elevated for 10 s straight, then at most once per 5 min
-        if self.engine.tier == 2:
+        if self.engine.tier == 2 and not self._is_control():
             if self._elevated_since is None:
                 self._elevated_since = time.time()
             elif ((self.llm.available or self._demo_target is not None)
@@ -1692,7 +1888,7 @@ class AmbientApp:
             self._elevated_since = None
 
         # --- breathing popup when Elevated -----------------------------------
-        if self.engine.tier == 2:
+        if self.engine.tier == 2 and not self._is_control():
             popup_gone  = not (self._breathing_popup and self._breathing_popup.alive())
             cooldown_ok = (time.time() - self._last_popup_time) > 120
             if popup_gone and cooldown_ok:

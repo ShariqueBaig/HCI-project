@@ -21,11 +21,8 @@ class TelemetryDaemon:
         self.key_press_times = {} # key_id -> press timestamp
         self.dwell_times = deque()
         self.flight_times = deque()
+        self.key_events = deque() # (timestamp, backspace_penalty_weight)
         self.last_release_time = None
-        
-        # Cumulative error tracking within the window
-        self.backspace_count = 0
-        self.total_keys = 0
         
         self.lock = threading.Lock()
         self._mods_down = set()  # currently held shortcut-modifier keys
@@ -34,6 +31,17 @@ class TelemetryDaemon:
         self.mouse_distances = deque()
         self.mouse_clicks = deque()
         self.last_mouse_pos = None
+
+    @staticmethod
+    def _key_id(key):
+        """Stable key identifier without inspecting character text."""
+        vk = getattr(key, 'vk', None)
+        if vk is not None:
+            return ('vk', vk)
+        name = getattr(key, 'name', None)
+        if name is not None:
+            return ('key', name)
+        return ('id', id(key))
         
     def on_press(self, key):
         current_time = time.time()
@@ -47,24 +55,33 @@ class TelemetryDaemon:
                 if key not in (keyboard.Key.backspace, keyboard.Key.delete):
                     return
 
-            key_id = id(key)
+            # Expire any stuck press timestamps older than the rolling window
+            cutoff = current_time - self.window_size_seconds
+            stale = [k for k, t in self.key_press_times.items() if t < cutoff]
+            for k in stale:
+                self.key_press_times.pop(k, None)
+
+            key_id = self._key_id(key)
             is_auto_repeat = key_id in self.key_press_times
             if not is_auto_repeat:
                 self.key_press_times[key_id] = current_time
-            elif key == keyboard.Key.backspace or key == keyboard.Key.delete:
-                # If they hold backspace (auto-repeat), penalize heavily
-                self.backspace_count += 2
-                
-            if key == keyboard.Key.backspace or key == keyboard.Key.delete:
+
+            err_weight = 0
+            if key in (keyboard.Key.backspace, keyboard.Key.delete):
                 if self._mods_down:
-                    self.backspace_count += 4  # modified delete (e.g. word delete) has higher penalty
+                    err_weight = 4  # modified delete (e.g. Ctrl+Backspace word delete)
+                elif is_auto_repeat:
+                    err_weight = 3  # holding backspace down (auto-repeat)
                 else:
-                    self.backspace_count += 1
-            self.total_keys += 1
+                    err_weight = 1
+
+            self.key_events.append((current_time, err_weight))
+            while self.key_events and self.key_events[0][0] < cutoff:
+                self.key_events.popleft()
 
     def on_release(self, key):
         current_time = time.time()
-        key_id = id(key)
+        key_id = self._key_id(key)
         with self.lock:
             was_in_shortcut = bool(self._mods_down)
             self._mods_down.discard(key)
@@ -84,7 +101,8 @@ class TelemetryDaemon:
             if key_id in self.key_press_times:
                 press_time = self.key_press_times.pop(key_id)
                 dwell_time = current_time - press_time
-                self.dwell_times.append((current_time, dwell_time))
+                if 0.0 <= dwell_time <= 2.0:
+                    self.dwell_times.append((current_time, dwell_time))
 
             if self.last_release_time is not None:
                 flight_time = current_time - self.last_release_time
@@ -132,26 +150,27 @@ class TelemetryDaemon:
             current_time = time.time()
             cutoff = current_time - self.window_size_seconds
             
+            while self.key_events and self.key_events[0][0] < cutoff:
+                self.key_events.popleft()
+
             active_dwells = [d for t, d in self.dwell_times if t >= cutoff]
             active_flights = [f for t, f in self.flight_times if t >= cutoff]
             active_distances = [d for t, d in self.mouse_distances if t >= cutoff]
             active_clicks = [t for t in self.mouse_clicks if t >= cutoff]
+            total_keys = len(self.key_events)
+            backspace_weight = sum(w for _, w in self.key_events)
             
             features = {
                 "mean_dwell": statistics.mean(active_dwells) if active_dwells else 0.0,
                 "std_dwell": statistics.stdev(active_dwells) if len(active_dwells) > 1 else 0.0,
                 "mean_flight": statistics.mean(active_flights) if active_flights else 0.0,
                 "std_flight": statistics.stdev(active_flights) if len(active_flights) > 1 else 0.0,
-                "error_rate": self.backspace_count / max(self.total_keys, 1),
+                "error_rate": min(1.0, backspace_weight / max(total_keys, 1)),
                 "keys_per_second": len(active_dwells) / self.window_size_seconds,
                 "flight_count": len(active_flights),  # used to suppress CoV on thin samples
                 "mouse_distance": sum(active_distances),
                 "mouse_clicks": len(active_clicks),
             }
-            
-            # Reset counts for the next extraction
-            self.backspace_count = 0
-            self.total_keys = 0
             
             return features
 

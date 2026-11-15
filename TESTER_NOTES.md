@@ -17,19 +17,25 @@ Two minutes of setup, then just work normally. No installation, no Python, no co
 
 Windows 10/11, 64-bit.
 
-## 2. Give consent first (nothing is recorded without it)
+## 2. Give consent & calibrate (nothing is recorded without consent)
 
 1. In the app, click **Privacy** (small link under the brightness row).
 2. Type the **participant code** your researcher gave you.
 3. Read the text and click **Save consent**.
+4. *(Optional)* Click **Calibrate** to open the 30-second calibration box, type the sample
+   paragraph at your normal relaxed pace, and let it save your baseline rhythm.
 
-Until you do this, ticking **Record session** just re-opens this dialog — by design.
+Until you save consent, ticking **Record session** just re-opens the Privacy dialog — by design.
 
 ## 3. Record a session
 
-- Tick **Record session**, then work normally. The gauge responds to your typing and mouse.
-- When you finish: **Journal** → set **Perceived stress (0–10)** and **Mood (0–10)** →
-  **Save entry**. That closes the session and attaches your ratings (plus any note) to it.
+- *(If your researcher assigned you a study condition, check that the button next to Calibrate
+  shows **Mode: Active (B)** or **Mode: Control (A)** as instructed.)*
+- Tick **Record session**, then work normally. A live **`● Rec MM:SS`** timer appears on the
+  checkbox and gauge while recording.
+- When you finish: **uncheck `Record session`** (or click **Journal**). The **Journal** window
+  opens automatically → set **Perceived stress (0–10)** and **Mood (0–10)** → click
+  **Save entry**. That finalizes the session and attaches your ratings (plus any note) to it.
 - The **Cloud sync** row tells you where it stands:
   - green `everything uploaded` — it reached the research database
   - amber `1 queued for upload` — waiting, will send shortly
