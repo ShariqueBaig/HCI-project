@@ -40,6 +40,7 @@ FIRESTORE_URL    = ('https://firestore.googleapis.com/v1/projects/{project}'
                     '/databases/(default)/documents/{path}')
 DEFAULT_COLLECTION = 'aura_sessions'
 TIMEOUT          = 20
+MAX_CLOUD_TICKS  = 800   # cap REST payload well under Firestore's 1 MiB document limit
 
 
 def _base_dir():
@@ -231,9 +232,22 @@ class FirebaseSync:
             'journal_reflection': jr.get('reflection'),
             'journal_note_chars': jr.get('note_chars'),
         }
-        # Tick stream: numeric fields only, exactly what the collector stored.
+        # Tick stream: numeric fields only, capped so long sessions stay < 1 MiB.
+        # Local .jsonl files retain all 3 Hz ticks untouched.
+        n_ticks = len(ticks)
+        if n_ticks > MAX_CLOUD_TICKS:
+            peak_idx = max(range(n_ticks), key=lambda i: float(ticks[i].get('score') or 0.0))
+            idxs = {int(i * (n_ticks - 1) / (MAX_CLOUD_TICKS - 2)) for i in range(MAX_CLOUD_TICKS - 1)}
+            idxs.update((0, n_ticks - 1, peak_idx))
+            selected = [ticks[i] for i in sorted(idxs)]
+            doc['tick_stride']  = round(n_ticks / len(selected), 3)
+        else:
+            selected = ticks
+            doc['tick_stride']  = 1.0
+        doc['tick_sampled'] = len(selected)
+
         stream = []
-        for rec in ticks:
+        for rec in selected:
             feat = rec.get('feat') or {}
             iface = rec.get('int') or {}
             stream.append({

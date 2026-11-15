@@ -58,18 +58,24 @@ def reflect_prompt(s, note):
     return p
 
 
-def local_reflection(s):
+def local_reflection(s, note=''):
     """Fallback when OpenRouter is unavailable."""
+    parts = []
+    note = (note or '').strip()
+    if note:
+        snippet = note[:120] + ('...' if len(note) > 120 else '')
+        parts.append('You noted: "{}".'.format(snippet))
     if s['episodes'] == 0:
-        body = 'You stayed out of the Elevated zone this session. '
+        parts.append('You stayed out of the Elevated zone this session.')
     else:
-        body = ('Stress reached Elevated {} time{} and peaked at {:.0f} around minute {}. '
-                .format(s['episodes'], '' if s['episodes'] == 1 else 's', s['peak'],
-                        int(s['peak_at_s'] // 60)))
+        parts.append('Stress reached Elevated {} time{} and peaked at {:.0f} around minute {}.'.format(
+            s['episodes'], '' if s['episodes'] == 1 else 's', s['peak'],
+            int(s['peak_at_s'] // 60)))
     if s['breathing']:
-        body += 'The breathing guide opened {} time{}. '.format(
-            s['breathing'], '' if s['breathing'] == 1 else 's')
+        parts.append('The breathing guide opened {} time{}.'.format(
+            s['breathing'], '' if s['breathing'] == 1 else 's'))
     if s['held']:
-        body += 'Focus mode kept {} notification{} out of the way. '.format(
-            s['held'], '' if s['held'] == 1 else 's')
-    return body + 'Next time, try a short break as soon as the score starts climbing.'
+        parts.append('Focus mode kept {} notification{} out of the way.'.format(
+            s['held'], '' if s['held'] == 1 else 's'))
+    parts.append('Next time, try a short break as soon as the score starts climbing.')
+    return ' '.join(parts)

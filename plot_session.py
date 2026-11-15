@@ -1,7 +1,7 @@
-"""Turn an AuraUI session log into the poster chart.
+"""Turn an AuraUI session log (.jsonl or .csv) into the poster chart.
 
-Usage:  python plot_session.py [session_log_xxx.csv] [--start 5 --end 65]
-With no file, the newest session_log_*.csv next to this script is used.
+Usage:  python plot_session.py [path/to/session.jsonl | session_log_xxx.csv] [--start 5 --end 65]
+With no file, the newest non-empty research .jsonl or session_log_*.csv is used.
 Requires:  pip install matplotlib
 """
 import csv, glob, os, sys
@@ -9,19 +9,77 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+from backend import research
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-args = [a for a in sys.argv[1:] if not a.startswith('--')]
-opts = {sys.argv[i]: sys.argv[i + 1] for i in range(1, len(sys.argv) - 1) if sys.argv[i].startswith('--')}
-path = args[0] if args else max(glob.glob(os.path.join(HERE, 'session_log_*.csv')), key=os.path.getmtime)
-rows = list(csv.DictReader(open(path, encoding='utf-8')))
+
+args, opts = [], {}
+i = 1
+while i < len(sys.argv):
+    a = sys.argv[i]
+    if a.startswith('--') and i + 1 < len(sys.argv):
+        opts[a] = sys.argv[i + 1]
+        i += 2
+    else:
+        args.append(a)
+        i += 1
+
+
+def _load_rows(p):
+    if p.lower().endswith('.jsonl'):
+        _hdr, ticks, _sum = research._read_session(p)
+        return [
+            {
+                't': float(rec.get('t') or 0.0),
+                'score': float(rec.get('score') or 0.0),
+                'tier': int(rec.get('tier') or 0),
+                'br': float((rec.get('int') or {}).get('brightness') or 80.0),
+                'bo': int((rec.get('int') or {}).get('breathing') or 0),
+            }
+            for rec in ticks
+        ]
+    with open(p, encoding='utf-8') as f:
+        return [
+            {
+                't': float(r.get('t_s') or r.get('t') or 0.0),
+                'score': float(r.get('score') or 0.0),
+                'tier': int(r.get('tier') or 0),
+                'br': float(r.get('brightness_pct') or r.get('brightness') or 80.0),
+                'bo': int(r.get('breathing_open') or r.get('breathing') or 0),
+            }
+            for r in csv.DictReader(f)
+        ]
+
+
+if args:
+    path = args[0]
+    rows = _load_rows(path)
+else:
+    candidates = sorted(
+        research.list_sessions() + glob.glob(os.path.join(HERE, 'session_log_*.csv')),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    path, rows = None, []
+    for cand in candidates:
+        cand_rows = _load_rows(cand)
+        if cand_rows:
+            path, rows = cand, cand_rows
+            break
+    if not path:
+        raise SystemExit('No non-empty session .jsonl or session_log_*.csv found to plot.')
+
 t0, t1 = float(opts.get('--start', 0)), float(opts.get('--end', 1e9))
-rows = [r for r in rows if t0 <= float(r['t_s']) <= t1]
-off = float(rows[0]['t_s'])
-t  = [float(r['t_s']) - off for r in rows]
-sc = [float(r['score']) for r in rows]
-tr = [int(r['tier']) for r in rows]
-br = [float(r['brightness_pct']) for r in rows]
-bo = [int(r['breathing_open']) for r in rows]
+rows = [r for r in rows if t0 <= r['t'] <= t1]
+if not rows:
+    raise SystemExit('No telemetry ticks found in {} within [{}, {}].'.format(path, t0, t1))
+
+off = rows[0]['t']
+t  = [r['t'] - off for r in rows]
+sc = [r['score'] for r in rows]
+tr = [r['tier'] for r in rows]
+br = [r['br'] for r in rows]
+bo = [r['bo'] for r in rows]
 
 MAR, INK, MUT = '#8B1A1F', '#2a1a1c', '#6b5d5f'
 CALM, MILD, ELEV = '#7fae9d', '#d9a054', '#c97070'
@@ -36,7 +94,7 @@ plt.rcParams['font.family'] = 'DejaVu Sans'
 def draw(figsize, fs, out, title, lw, compact):
     fig, (a1, a2) = plt.subplots(2, 1, figsize=figsize, dpi=300, sharex=True,
                                  gridspec_kw=dict(height_ratios=[3.2, 1], hspace=0.10))
-    xmax = t[-1]
+    xmax = t[-1] or 1.0
     for lo, hi, c, l in [(0, 30, CALM, 'Calm'), (30, 60, MILD, 'Mild'), (60, 100, ELEV, 'Elevated')]:
         a1.axhspan(lo, hi, color=c, alpha=0.16, lw=0)
         a1.text(xmax * 0.99, (lo + hi) / 2, l, ha='right', va='center', color=MUT, fontsize=fs, fontweight='bold')
@@ -57,7 +115,9 @@ def draw(figsize, fs, out, title, lw, compact):
         note(i_prompt, '② PROMPT\nbreathing guide opens', 0.03, 84, ELEV)
         note(i_back, '③ RECOVERY\nback to Calm', 0.05, 48, CALM)
     a2.step(t, br, where='post', color=MAR, lw=lw * 0.85)
-    a2.set_ylim(min(br) - 10, max(br) + 10); a2.set_yticks([round(min(br)), round(max(br))])
+    a2.set_ylim(min(br) - 10, max(br) + 10)
+    b_lo, b_hi = round(min(br)), round(max(br))
+    a2.set_yticks([b_lo] if b_lo == b_hi else [b_lo, b_hi])
     a2.set_ylabel('Brightness %', fontsize=fs, color=INK)
     a2.set_xlabel('Time (seconds)', fontsize=fs, color=INK)
     for a in (a1, a2):

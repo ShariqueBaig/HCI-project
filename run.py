@@ -636,6 +636,10 @@ class AmbientApp:
             fg=MILD if is_ctrl else CALM)
         if is_ctrl:
             self._restore_display()
+            if self._dnd_active:
+                self.os_ctrl.set_dnd(False)
+                self._dnd_active = False
+                self._release_held()
             if self._breathing_popup and self._breathing_popup.alive():
                 self._breathing_popup.close()
 
@@ -710,7 +714,12 @@ class AmbientApp:
 
     def _open_journal(self, closing_session=False):
         self._closing_via_journal = bool(closing_session or self._collector is not None)
+        banner = ('Session stopped \u00b7 set your 0-10 ratings and click Save entry to finalize.'
+                  if closing_session else '')
         if self._journal_win and self._journal_win.winfo_exists():
+            if hasattr(self, '_j_closing_lbl'):
+                self._j_closing_lbl.config(text=banner)
+            self._journal_refresh()
             self._journal_win.lift()
             return
         win = tk.Toplevel(self.root)
@@ -721,9 +730,9 @@ class AmbientApp:
         self._journal_win = win
         tk.Label(win, text='Session journal', bg=BG, fg=TEXT,
                  font=('Georgia', 13)).pack(anchor='w', padx=16, pady=(14, 0))
-        if closing_session:
-            tk.Label(win, text='Session stopped \u00b7 set your 0-10 ratings and click Save entry to finalize.',
-                     bg=BG, fg=CALM, font=('Arial', 8, 'bold')).pack(anchor='w', padx=16, pady=(2, 0))
+        self._j_closing_lbl = tk.Label(win, text=banner, bg=BG, fg=CALM,
+                                       font=('Arial', 8, 'bold'))
+        self._j_closing_lbl.pack(anchor='w', padx=16, pady=(2, 0))
         self._j_stats = tk.Label(win, text='', bg=BG, fg=MUTED, justify='left',
                                  font=('Arial', 8))
         self._j_stats.pack(anchor='w', padx=16, pady=(2, 8))
@@ -824,7 +833,7 @@ class AmbientApp:
                                          journal_store.REFLECT_SYSTEM)
             except Exception as e:
                 print('[Aura UI] reflection fallback:', e)
-                text = journal_store.local_reflection(s)
+                text = journal_store.local_reflection(s, note)
             def done():
                 if not (self._journal_win and self._journal_win.winfo_exists()):
                     return
@@ -836,9 +845,10 @@ class AmbientApp:
 
     def _journal_save(self):
         s = self.stats.summary()
+        note_txt = self._j_note.get('1.0', 'end').strip()
         entry = {'time': time.strftime('%d %b %H:%M'), 'stats': s,
-                 'note': self._j_note.get('1.0', 'end').strip(),
-                 'reflection': self._j_reflection or journal_store.local_reflection(s)}
+                 'note': note_txt,
+                 'reflection': self._j_reflection or journal_store.local_reflection(s, note_txt)}
         try:
             journal_store.add(entry)
         except OSError as e:
@@ -860,6 +870,8 @@ class AmbientApp:
         self._update_notif_lbl()
         self._j_note.delete('1.0', 'end')
         self._j_reflection = ''
+        if hasattr(self, '_j_closing_lbl'):
+            self._j_closing_lbl.config(text='')
         self._journal_set_refl('Saved. Session finalized and reset.')
         self._journal_refresh()
 
@@ -1728,7 +1740,7 @@ class AmbientApp:
                 pass
         self._calib_win = None
         calib_color = MUTED if self.settings['is_calibrated'] else ELEV
-        status = '\u2713 Calibrated' if self.settings['is_calibrated'] else 'Not calibrated'
+        status = '\u2713 Cal' if self.settings['is_calibrated'] else 'Uncal'
         self._calib_btn.config(state='normal', text='Calibrate', fg=calib_color)
         self._calib_lbl.config(text=status, fg=calib_color)
 
@@ -1772,7 +1784,7 @@ class AmbientApp:
             self.settings['baseline_err'] = round(sum(errs) / len(errs), 4)
             self.settings['is_calibrated'] = 1
             self._calib_btn.config(state='normal', text='Calibrate', fg=MUTED)
-            self._calib_lbl.config(text='\u2713 Calibrated', fg=MUTED)
+            self._calib_lbl.config(text='\u2713 Cal', fg=MUTED)
             if self._calib_win and self._calib_win.winfo_exists():
                 self._calib_modal_lbl.config(
                     text='\u2713 Calibration complete! Baseline CoV {:.2f} saved.'.format(
@@ -1782,7 +1794,7 @@ class AmbientApp:
         else:
             calib_color = MUTED if self.settings['is_calibrated'] else ELEV
             self._calib_btn.config(state='normal', text='Calibrate', fg=calib_color)
-            self._calib_lbl.config(text='No typing detected', fg=ELEV)
+            self._calib_lbl.config(text='Retry', fg=ELEV)
             if self._calib_win and self._calib_win.winfo_exists():
                 self._calib_modal_lbl.config(
                     text='Not enough typing detected \u2014 click Calibrate to try again.',
@@ -1924,6 +1936,9 @@ class AmbientApp:
         self._running = False
         self._close_log()
         self._restore_display()
+        if self._dnd_active:
+            self.os_ctrl.set_dnd(False)
+            self._dnd_active = False
         if self.tray:
             try: self.tray.stop()
             except: pass

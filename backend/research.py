@@ -456,7 +456,7 @@ def export_dataset(dest_dir, dedupe=True):
             sw.writerow({
                 'session_id': sid, 'pseudonym': summary.get('pseudonym') or header.get('pseudonym'),
                 'condition': header.get('condition'), 'protocol': header.get('protocol'),
-                'tick_hz': header.get('tick_hz'), 'started': summary.get('ended') or header.get('started'),
+                'tick_hz': header.get('tick_hz'), 'started': header.get('started') or summary.get('ended'),
                 'duration_s': summary.get('duration_s'), 'ticks': summary.get('ticks'),
                 'score_mean': summary.get('score_mean'), 'score_peak': summary.get('score_peak'),
                 'peak_at_s': summary.get('peak_at_s'),
