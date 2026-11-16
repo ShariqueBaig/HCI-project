@@ -283,6 +283,9 @@ class FirebaseSync:
                                     header.get('session_id') or os.path.basename(path)[:-6])
             doc_id = ''.join(c for c in doc_id if c.isalnum() or c in '-_')
             body = self.build_document(header, ticks, summary)
+            # Flag a damaged log (e.g. a torn line from a crash) instead of
+            # uploading it as if it were intact.
+            body['chain_ok'] = research.verify_session(path)[0]
             # Create on the COLLECTION, with the id in documentId. Putting the id in
             # both the path and the query is rejected with HTTP 400 by Firestore.
             url = FIRESTORE_URL.format(project=self.config['project_id'],
@@ -321,8 +324,25 @@ class FirebaseSync:
         except OSError:
             pass
 
+    @staticmethod
+    def _finalised(path):
+        """True when the session ended and wrote its summary line.
+
+        A session left behind by a force-quit or crash has no summary and can
+        never be uploaded, so leaving it in the queue would show a permanent
+        upload error. Cheap tail check - the summary is always the last line.
+        """
+        try:
+            with open(path, 'rb') as f:
+                f.seek(0, os.SEEK_END)
+                f.seek(max(0, f.tell() - 4096))
+                return b'"summary"' in f.read()
+        except OSError:
+            return False
+
     def pending(self):
-        return [p for p in research.list_sessions() if not os.path.exists(self._marker(p))]
+        return [p for p in research.list_sessions()
+                if not os.path.exists(self._marker(p)) and self._finalised(p)]
 
     def push_pending(self, limit=None):
         """Upload every session not yet marked as synced. Never raises."""
