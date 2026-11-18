@@ -6,6 +6,10 @@ system volume** — nobody needs a Spotify account for the intervention to work.
 
 One section per thing that actually goes wrong on the day.
 
+For the printable version — what to set up once for the lab, once per station, and once
+per participant — see **[AURA_STATION_GUIDE.pdf](AURA_STATION_GUIDE.pdf)** (source:
+`docs/station_setup_guide.html`).
+
 ---
 
 ## 1. The decisions this setup is built around
@@ -55,6 +59,22 @@ lab and never enters an export.
 python tools/lab_setup.py status      # is the station configured?
 python tools/lab_setup.py check       # is it NAMED, and can it really write? (§4)
 ```
+
+Run it with no arguments (or `--help`) to print the usage and the example commands.
+
+**Or do the whole station in one command** — it finds Python, creates `.venv`, installs
+`requirements.txt` (so `pycaw` is there), drops the shared salt in place, then runs
+`status` and `check`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\setup_station.ps1 -SaltFrom \\labshare\lab_salt.txt
+```
+
+Add `-Code P01` to name the station in the same run, `-Condition control` for the control
+arm, and `-Build` to rebuild `dist\AuraUI.exe` with pycaw bundled. `-SkipDeps` (no venv,
+no pip) and `-SkipCheck` (no network) keep a re-run fast; `-Force` is passed to `prepare`.
+It exits 1 if the check fails, so a lab script can gate on it. Double-clicking
+`tools\setup_station.bat` runs the same thing with PowerShell's execution policy bypassed.
 
 `status` should end with something like:
 

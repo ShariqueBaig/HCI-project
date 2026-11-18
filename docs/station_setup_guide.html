@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aura UI — Lab Station Setup Guide</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "Calibri", Arial, sans-serif;
+    font-size: 10.2pt; line-height: 1.45; color: #1d2430; margin: 0;
+  }
+  h1 { font-size: 21pt; margin: 0 0 2mm 0; color: #10263f; letter-spacing: -0.2px; }
+  h2 {
+    font-size: 13pt; color: #10263f; margin: 8mm 0 2.5mm 0;
+    padding-bottom: 1.2mm; border-bottom: 1.2px solid #cfd8e3;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 10.8pt; margin: 5mm 0 1.5mm 0; color: #1c3a5e; page-break-after: avoid; }
+  p, li { margin: 0 0 2mm 0; }
+  ul, ol { margin: 0 0 2.5mm 0; padding-left: 6mm; }
+  li { margin-bottom: 1.1mm; }
+  code, kbd {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 9pt;
+    background: #eef2f7; padding: 0.4mm 1.2mm; border-radius: 2px; color: #12324f;
+  }
+  pre {
+    font-family: "Cascadia Mono", Consolas, monospace; font-size: 8.8pt;
+    background: #f5f7fa; border: 1px solid #dde4ec; border-left: 3px solid #3b6ea5;
+    padding: 2.5mm 3mm; margin: 1.5mm 0 3mm 0; white-space: pre-wrap;
+    page-break-inside: avoid; line-height: 1.35;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 3.5mm 0; font-size: 9.2pt; page-break-inside: avoid; }
+  th { background: #10263f; color: #fff; text-align: left; padding: 1.6mm 2mm; font-weight: 600; }
+  td { padding: 1.5mm 2mm; border-bottom: 1px solid #e1e7ee; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .cover { border-left: 4px solid #3b6ea5; padding-left: 5mm; margin-bottom: 6mm; }
+  .sub { font-size: 11pt; color: #4a5a6e; margin: 0; }
+  .meta { font-size: 8.8pt; color: #6a7a8c; margin-top: 3mm; }
+  .callout {
+    background: #f2f7fd; border: 1px solid #cfe0f2; border-left: 3px solid #3b6ea5;
+    padding: 2.5mm 3mm; margin: 2.5mm 0 3.5mm 0; page-break-inside: avoid; font-size: 9.4pt;
+  }
+  .callout.warn { background: #fdf6ec; border-color: #f0d9b5; border-left-color: #c8842a; }
+  .callout strong { color: #10263f; }
+  .two { display: flex; gap: 5mm; }
+  .two > div { flex: 1; }
+  .tag {
+    display: inline-block; font-size: 8pt; font-weight: 700; letter-spacing: .4px;
+    text-transform: uppercase; color: #fff; background: #3b6ea5;
+    padding: 0.6mm 2mm; border-radius: 2px; margin-bottom: 2mm;
+  }
+  .tag.alt { background: #6b7d92; }
+  .pagebreak { page-break-before: always; }
+  .check { list-style: none; padding-left: 0; }
+  .check li { padding-left: 6.5mm; position: relative; }
+  .check li:before {
+    content: ""; position: absolute; left: 0; top: 0.7mm;
+    width: 3.4mm; height: 3.4mm; border: 1.2px solid #4a6a8c; border-radius: 1px;
+  }
+  .small { font-size: 9pt; }
+  footer { margin-top: 7mm; border-top: 1px solid #dde4ec; padding-top: 2mm; font-size: 8.4pt; color: #6a7a8c; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="tag">Lab operations</div>
+  <h1>Aura UI — Station Setup Guide</h1>
+  <p class="sub">A 10–12 participant, 20–30 minute study on Windows lab PCs, with system audio as the intervention path.</p>
+  <p class="meta">Applies to build 2.0.0 · Windows 10/11 64-bit · Firebase project <code>aura-ui-hci</code> · collection <code>aura_sessions</code></p>
+</div>
+
+<h2>1. The one-page version</h2>
+<p>There are three moments, and only one of them is repeated:</p>
+<table>
+  <tr><th style="width:26%">Moment</th><th style="width:30%">Runs on</th><th>What it does</th></tr>
+  <tr>
+    <td><strong>Once, for the whole lab</strong></td>
+    <td>any one machine</td>
+    <td>Create <code>lab_salt.txt</code>, build <code>AuraUI.exe</code>, prepare one master folder, publish the Firestore rules.</td>
+  </tr>
+  <tr>
+    <td><strong>Once per station</strong></td>
+    <td>each lab PC</td>
+    <td>Copy the master folder, install Python + <code>pycaw</code>, run <code>setup_station.ps1</code>, confirm <code>check</code> passes. ~5 minutes per PC.</td>
+  </tr>
+  <tr>
+    <td><strong>Once per participant</strong></td>
+    <td>the station they sit at</td>
+    <td><code>prepare</code> → participant works → <code>verify</code> → <code>reset</code>. ~1 minute of operator time.</td>
+  </tr>
+</table>
+
+<div class="callout">
+  <strong>The whole study in one command.</strong> Once Python is on a station, this does the per-station work end to end:
+  <pre>powershell -ExecutionPolicy Bypass -File tools\setup_station.ps1 -SaltFrom \\labshare\lab_salt.txt -Code P01</pre>
+  Drop <code>-SaltFrom</code> if the salt is already beside the project, drop <code>-Code</code> to leave naming for later, add <code>-Build</code> to rebuild the exe.
+</div>
+
+<h2>2. What is identical everywhere, and what changes</h2>
+<p>The rule that keeps the dataset joinable: <strong>everything that identifies the participant is shared, everything that identifies the machine is automatic.</strong></p>
+
+<div class="two">
+  <div>
+    <span class="tag alt">Same on every station</span>
+    <ul class="small">
+      <li><code>AuraUI.exe</code> — byte-for-byte the same file; copy it, never rebuild per PC</li>
+      <li><code>lab_salt.txt</code> — the <em>same 64-character file</em>; this is what makes <code>P07</code> one person across machines</li>
+      <li><code>aura_defaults.json</code> — public Firebase project id, Web API key, Spotify client id (compiled into the exe)</li>
+      <li>Firestore security rules and database</li>
+      <li>Consent text version (3.0) and the app build</li>
+      <li>Windows system volume as the audio path — no Spotify logins</li>
+      <li>No <code>secrets.json</code> needed; Aura Chat falls back to its built-in coach</li>
+    </ul>
+  </div>
+  <div>
+    <span class="tag">Different per station</span>
+    <ul class="small">
+      <li>The <strong>folder path</strong> — anything writable, e.g. <code>C:\AuraUI</code> or the Desktop</li>
+      <li>The <strong>anonymous Firebase uid</strong> — created on first launch, stored in <code>data\firebase_identity.json</code>; never copy that file between PCs</li>
+      <li>Local sessions, <code>journal.json</code>, <code>.cache</code> — the station's own history</li>
+      <li><strong>Participant code + condition</strong> — set per participant with <code>prepare</code></li>
+      <li>Default output device and its volume level</li>
+      <li>Display / brightness behaviour (external monitors may not respond)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout warn">
+  <strong>Never copy <code>data\firebase_identity.json</code> or <code>settings.json</code> from PC to PC.</strong>
+  The first gives two machines the same anonymous identity; the second silently names a fresh machine after the previous participant. Copy the app folder <em>before</em> the first launch, or delete those two files after copying.
+</div>
+
+<h2>3. Once for the whole lab</h2>
+
+<h3>3.1 Create the lab salt (one time, one machine)</h3>
+<pre>python tools\lab_setup.py salt-init</pre>
+<p>This writes <code>lab_salt.txt</code> (64 hex characters) beside <code>run.py</code>. Every station must get this exact file. Copy it to a USB stick and to a shared network folder — <code>\\labshare\lab_salt.txt</code> is the example used throughout. It never leaves the lab and is never uploaded.</p>
+
+<h3>3.2 Build the exe once, then copy it</h3>
+<pre>python -m PyInstaller --noconfirm --onefile --noconsole --name "AuraUI" ^
+       --add-data "aura_defaults.json;." ^
+       --hidden-import pycaw --hidden-import comtypes run.py</pre>
+<p>The two <code>--hidden-import</code> flags matter: the volume code imports <code>pycaw</code> lazily, so PyInstaller's static analysis does not see it. Omit them and the packaged app still runs — but silently falls back to the volume media keys, with ±2 % steps that some lab images block entirely. The result is <code>dist\AuraUI.exe</code>, about 24 MB, self-contained.</p>
+
+<h3>3.3 Prepare the master folder</h3>
+<p>Copy to a USB stick (or a share) so every station gets an identical start:</p>
+<pre>AuraUI\
+  AuraUI.exe          <- the built exe
+  lab_salt.txt        <- the shared salt
+  docs\TESTER_NOTES.md
+</pre>
+<p>Keep a source checkout with <code>tools\lab_setup.py</code> on at least the operator's machine — <code>prepare</code>, <code>verify</code>, <code>reset</code> and <code>check</code> all live there.</p>
+
+<h3>3.4 Confirm the database is writable</h3>
+<p>Firestore must accept writes from anonymous users. The rules in <code>docs/FIREBASE_SETUP.md</code> allow create/delete only when the document's <code>uid</code> equals the caller's, and deny reads. If you skip this, every station will record locally and fail to upload. The per-station <code>check</code> (step 4.4) proves it in one line: <code>write test: write + delete confirmed</code>.</p>
+
+<h2 class="pagebreak">4. Once per station</h2>
+
+<h3>4.1 Copy the folder to a writable place</h3>
+<p>Use <code>C:\AuraUI</code> (or the Desktop). <strong>Never <code>C:\Program Files</code></strong> — the app writes <code>settings.json</code>, <code>journal.json</code>, <code>.cache</code> and <code>data\</code> beside itself, and Windows blocks that.</p>
+
+<h3>4.2 Confirm the machine baseline</h3>
+<table>
+  <tr><th style="width:32%">Check</th><th>Expected</th></tr>
+  <tr><td>Windows version</td><td>Windows 10 or 11, 64-bit</td></tr>
+  <tr><td>Sound</td><td>A default output device exists (speakers or headphones); play something and confirm the tray volume slider moves it</td></tr>
+  <tr><td>Internet</td><td>Reaches <code>firestore.googleapis.com</code>; no captive portal, no proxy that strips TLS</td></tr>
+  <tr><td>Screen</td><td>1366×768 or larger; the widget sits in a corner, keep it visible</td></tr>
+  <tr><td>User account</td><td>Can install Python and write to <code>C:\AuraUI</code> (no admin prompt needed for the app itself)</td></tr>
+</table>
+
+<h3>4.3 Run the station setup script</h3>
+<p>Best case: Python 3.9+ is already installed. If not, install it from python.org and tick <em>Add python.exe to PATH</em>. Then, from the project folder:</p>
+<pre>powershell -ExecutionPolicy Bypass -File tools\setup_station.ps1 -SaltFrom \\labshare\lab_salt.txt</pre>
+<p>Or double-click <code>tools\setup_station.bat</code> to get the same thing with the execution policy bypassed — lab images often block unsigned <code>.ps1</code> files when double-clicked.</p>
+<p>What the script does, in order:</p>
+<ol>
+  <li>finds a Python (the <code>py</code> launcher first, Microsoft Store stubs skipped) and prints its version;</li>
+  <li>creates <code>.venv</code> and installs <code>requirements.txt</code> — this is where <code>pycaw</code> comes from;</li>
+  <li>copies the shared salt into place;</li>
+  <li>runs <code>lab_setup.py status</code>, then the real <code>check</code> (name + Firestore write);</li>
+  <li>optionally names the station (<code>-Code P01</code>) and rebuilds the exe (<code>-Build</code>).</li>
+</ol>
+<p>Useful switches: <code>-SkipDeps</code> (no venv, no pip — fast re-runs), <code>-SkipCheck</code> (offline), <code>-Condition control</code>, <code>-Force</code> (prepare even with pending uploads). Exit code <code>0</code> means ready; <code>1</code> means read the <code>[FAIL]</code> lines. A lab script can gate on it.</p>
+
+<h3>4.4 Read the result</h3>
+<pre>Station name
+  [ok]   shared lab salt: C:\AuraUI\lab_salt.txt
+  [ok]   participant code: P01
+  [ok]   pseudonym: e73582e4a42d3d2a
+  [ok]   consent on file (2026-11-18T09:31:12+05:00), pseudonym e73582e4a42d3d2a
+  condition  : intervention
+  [ok]   audio: Windows system volume via Core Audio
+
+Database
+  service    : Firebase Cloud Firestore (REST API, Anonymous sign-in)
+  project    : aura-ui-hci
+  collection : aura_sessions
+  station uid: vlnS1M4Z3SPKu5Xqbi1naVnhcRg2
+  [ok]   write test: write + delete confirmed
+  pending    : 0 session(s) waiting to upload
+
+[ok] this station is named and can write to Firestore</pre>
+<p>Two things to fix before anyone sits down:</p>
+<ul>
+  <li><code>audio: Windows system volume via Core Audio</code> — <code>pycaw</code> is present and volume is exact.</li>
+  <li><code>write test: write + delete confirmed</code> — the station really reaches Firestore. Sign-in alone does not prove this.</li>
+</ul>
+<p>If the audio line says <em>volume keys</em>, the exe was built without the hidden imports or <code>pycaw</code> is missing: run <code>pip install pycaw</code> in <code>.venv</code>, and rebuild with the flags in 3.2.</p>
+
+<h3>4.5 The GUI confirmation</h3>
+<p>Launch <code>AuraUI.exe</code> once and look at the Music panel. It should read <code>System audio</code> and <code>Audio: Windows volume (Core Audio)</code>. Play a track, force a stress spike with the demo control, and watch the Windows tray volume slider drop and recover. That is the intervention working on the study's actual audio path.</p>
+
+<div class="callout">
+  <strong>Only one station needs <code>-Build</code>.</strong> Build on the operator's PC or the first station, then copy <code>dist\AuraUI.exe</code> everywhere. Building on 12 PCs takes 12× as long and risks 12 subtly different binaries.
+</div>
+
+<h2>5. Once per participant</h2>
+<table>
+  <tr><th style="width:22%">When</th><th style="width:40%">Command</th><th>Why</th></tr>
+  <tr>
+    <td>Before they sit down</td>
+    <td><code>python tools\lab_setup.py prepare --code P01 --condition intervention</code></td>
+    <td>Writes consent, sets code + arm, clears the previous journal and Spotify login, checks Firestore, refuses if a session is still queued.</td>
+  </tr>
+  <tr>
+    <td>They work</td>
+    <td><em>tick <strong>Record session</strong>, work 20–30 min, Journal → 0–10 ratings → <strong>Save entry</strong></em></td>
+    <td>Recording starts on the tick, and Save entry finalises + uploads the session.</td>
+  </tr>
+  <tr>
+    <td>After they leave</td>
+    <td><code>python tools\lab_setup.py verify</code></td>
+    <td>Shows each local session as uploaded / not uploaded and the queue length.</td>
+  </tr>
+  <tr>
+    <td>Before the next person</td>
+    <td><code>python tools\lab_setup.py reset</code></td>
+    <td>Clears the code, journal and Spotify cache; keeps the session archive.</td>
+  </tr>
+</table>
+<p>Keep a paper sheet with the arm assignment: <code>P01 intervention</code>, <code>P02 control</code>, <code>P03 control</code>, … The arm is written into every uploaded document, so the sheet is only a cross-check — but a mis-typed <code>--condition</code> is not recoverable from the data alone.</p>
+
+<h3>5.1 A 20-minute participant, minute by minute</h3>
+<table>
+  <tr><th style="width:14%">Clock</th><th>Operator</th></tr>
+  <tr><td>−2 min</td><td><code>verify</code> on the previous participant, then <code>prepare --code P0n --condition …</code>. Read the pseudonym off the screen.</td></tr>
+  <tr><td>0</td><td>Participant sits. Read the consent line, confirm they saw it. Launch the app.</td></tr>
+  <tr><td>+1 min</td><td>They tick <strong>Record session</strong>; the button shows <code>● Rec 00:00</code>. Start the task.</td></tr>
+  <tr><td>+20–30 min</td><td>Task ends. <strong>Journal</strong> opens: perceived stress 0–10, mood 0–10, note, <strong>Save entry</strong>.</td></tr>
+  <tr><td>+2 min</td><td><code>verify</code> → <code>uploaded</code>. Then <code>reset</code>. Station is ready for the next code.</td></tr>
+</table>
+
+<h2 class="pagebreak">6. Audio on lab machines</h2>
+<p>The intervention lowers the <strong>Windows master volume</strong>, so it works with Spotify, YouTube, a local file, or a phone over Bluetooth — the study does not depend on any music account.</p>
+<table>
+  <tr><th style="width:34%">Panel says</th><th style="width:26%">Meaning</th><th>Action</th></tr>
+  <tr><td><code>Audio: Windows volume (Core Audio)</code></td><td><code>pycaw</code> is installed; exact 0–100 control</td><td>nothing</td></tr>
+  <tr><td><code>Audio: Windows volume (volume keys)</code></td><td>no <code>pycaw</code>; media-key fallback</td><td><code>pip install pycaw</code>, restart; rebuild exe with hidden imports</td></tr>
+  <tr><td><code>Audio: unavailable</code></td><td>no default output device</td><td>fix the sound device in Windows settings</td></tr>
+  <tr><td><code>Audio: Spotify</code></td><td>someone linked an account</td><td>fine, but not needed — <code>reset</code> forgets it</td></tr>
+</table>
+<p><strong>Do not link Spotify accounts for the study.</strong> The Development-Mode app allows 5 allowlisted users and the owner needs Premium; the sixth person gets <em>“This Spotify account must be added as a test user.”</em> Since system volume already delivers the intervention, linking only adds a failure mode. If a participant insists, add them under <em>Dashboard → Settings → User Management</em> before they sit down, and expect <code>reset</code> to log them out afterwards.</p>
+<p>Auto-lowering ramps in small steps when the tier reaches <em>Elevated</em> and restores as the person calms. If the volume moves but nothing gets quieter, the sound is playing on a different output device than Windows' default — set the intended device as default.</p>
+
+<h2>7. Where the data goes</h2>
+<p>Firebase Cloud Firestore, in the project <code>aura-ui-hci</code>, collection <code>aura_sessions</code>, over the REST API with anonymous sign-in.</p>
+<table>
+  <tr><th style="width:26%">Item</th><th>Value</th></tr>
+  <tr><td>Project / collection</td><td><code>aura-ui-hci</code> / <code>aura_sessions</code></td></tr>
+  <tr><td>Document id</td><td><code>&lt;pseudonym&gt;_&lt;session_id&gt;</code>, e.g. <code>e73582e4a42d3d2a_20261116-165231-6d9b6f</code></td></tr>
+  <tr><td>Auth</td><td>one anonymous uid per station, cached in <code>data\firebase_identity.json</code></td></tr>
+  <tr><td>Console</td><td>console.firebase.google.com/project/aura-ui-hci/firestore</td></tr>
+  <tr><td>Local copy</td><td><code>data\sessions\&lt;pseudonym&gt;\*.jsonl</code> beside the exe</td></tr>
+  <tr><td>Contents</td><td>numeric telemetry (≤ 800 sampled ticks), summary, ratings, journal note + reflection, <code>uid</code>, <code>chain_ok</code></td></tr>
+</table>
+<p>One finished session is one document. Because every station shares the salt, the same participant code produces the same pseudonym everywhere, so their sessions join across machines and a withdrawal can delete all of them. Uploads are local-first: a failed write stays queued, retries every 5 minutes, and the <code>.synced</code> marker only appears after Firestore confirms.</p>
+
+<h2>8. Troubleshooting</h2>
+<table>
+  <tr><th style="width:30%">Symptom</th><th style="width:30%">Cause</th><th>Fix</th></tr>
+  <tr><td><code>[warn] no lab_salt.txt</code></td><td>station missing the shared salt</td><td>copy <code>lab_salt.txt</code> in, re-run <code>prepare</code></td></tr>
+  <tr><td><code>check</code>: no participant code</td><td><code>prepare</code> not run, or <code>reset</code> was</td><td><code>prepare --code P02</code></td></tr>
+  <tr><td><code>check</code>: consent pseudonym does not match</td><td>settings and consent from different codes/salts</td><td>re-run <code>prepare</code></td></tr>
+  <tr><td><code>write rejected: HTTP 403</code></td><td>Firestore rules not published</td><td>publish the rules in <code>docs/FIREBASE_SETUP.md</code></td></tr>
+  <tr><td><code>sign-in failed</code></td><td>Anonymous sign-in disabled</td><td>Firebase → Authentication → Sign-in method → Anonymous</td></tr>
+  <tr><td><code>pending</code> never clears</td><td>upload rejected</td><td>read the Cloud sync row's error; usually rules or 403</td></tr>
+  <tr><td>App will not start / permission error</td><td>exe inside Program Files</td><td>move the folder to <code>C:\AuraUI</code> or Desktop</td></tr>
+  <tr><td>Brightness does not move</td><td>external monitor without DDC/CI</td><td>ignore — brightness is an intervention, not data</td></tr>
+  <tr><td>Session listed <code>INCOMPLETE</code></td><td>machine force-quit mid-session</td><td>expected: no summary, never uploads; keep the local file</td></tr>
+  <tr><td>SmartScreen on first launch</td><td>unsigned exe</td><td>More info → Run anyway</td></tr>
+  <tr><td><code>setup_station.ps1</code> cannot run</td><td>execution policy</td><td>use the <code>.bat</code> wrapper</td></tr>
+</table>
+
+<h2>9. Day-of checklist</h2>
+<ul class="check">
+  <li>Every station is a lab Windows PC and the app folder is writable</li>
+  <li><code>lab_salt.txt</code> is byte-identical on every station</li>
+  <li><code>pycaw</code> present — <code>status</code> shows <code>system volume via Core Audio</code></li>
+  <li><code>status</code> shows <code>enabled</code>, a <code>station uid</code>, <code>pending: 0</code></li>
+  <li>Firestore rules published</li>
+  <li><code>check</code> on every station: named + <code>write test: write + delete confirmed</code></li>
+  <li>Consent text version matches the app (3.0)</li>
+  <li>Arm assignments written down (P01…P12 → intervention / control)</li>
+  <li>No Spotify logins needed; system audio is the path</li>
+  <li><code>prepare</code> before each participant, <code>verify</code> + <code>reset</code> after</li>
+  <li><code>data\sessions</code> backed up at the end of the day</li>
+  <li>Demo control tested once per station: tray volume drops and recovers</li>
+</ul>
+
+<footer>
+  Aura UI — Intelligent Ambient Stress Intervention System · HCI course project.<br>
+  Companion documents: <code>docs/LAB_SETUP.md</code> (short operator reference), <code>docs/FIREBASE_SETUP.md</code> (database walkthrough), <code>docs/TESTER_NOTES.md</code> (participant-facing sheet).
+</footer>
+
+</body>
+</html>

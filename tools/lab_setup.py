@@ -47,6 +47,19 @@ DB_ENDPOINT = ('https://firestore.googleapis.com/v1/projects/{project}'
                '/databases/(default)/documents/{collection}')
 DB_CONSOLE  = 'https://console.firebase.google.com/project/{project}/firestore'
 
+USAGE_EXAMPLES = '''\
+examples:
+  python tools/lab_setup.py salt-init                  once per lab, then copy lab_salt.txt everywhere
+  python tools/lab_setup.py status                     is this station ready?
+  python tools/lab_setup.py check                      named + real database write test
+  python tools/lab_setup.py prepare --code P01         before each participant
+  python tools/lab_setup.py verify                     after the session: did it upload?
+  python tools/lab_setup.py reset                      between participants
+
+next participant:
+  prepare --code P02 -> let them run the study -> verify -> reset
+'''
+
 
 # --------------------------------------------------------------------- helpers
 
@@ -165,7 +178,10 @@ def cmd_status(args):
         warn('spotify check failed: {}'.format(e))
     try:
         from backend.os_controller import OSController
-        print('  audio      :', 'system volume via ' + OSController().volume_backend)
+        o = OSController()
+        # Reading the backend alone reports the initial value, so probe first.
+        print('  audio      :', 'system volume via ' + o.volume_backend if o.volume_available
+              else 'unavailable')
     except Exception as e:
         warn('audio check failed: {}'.format(e))
     return 0
@@ -399,7 +415,9 @@ def cmd_reset(args):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog='lab_setup.py',
-        description='Prepare and check Aura UI stations for a lab study.')
+        description='Prepare and check Aura UI stations for a lab study.',
+        epilog=USAGE_EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd')
 
     p = sub.add_parser('salt-init', help='create the shared lab salt (run once, copy to all stations)')
@@ -429,6 +447,7 @@ def main(argv=None):
 
     args = ap.parse_args(argv)
     if not getattr(args, 'func', None):
+        print('Aura UI lab station setup\n')
         ap.print_help()
         return 2
     return args.func(args)

@@ -68,8 +68,13 @@ class OSController:
             from comtypes import CLSCTX_ALL
             from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
             speakers = AudioUtilities.GetSpeakers()
-            iface = speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            self._vol = cast(iface, POINTER(IAudioEndpointVolume))
+            # pycaw >= 2023 returns an AudioDevice whose EndpointVolume is already
+            # activated; older builds (and the docs) use Activate() on the device.
+            iface = getattr(speakers, 'EndpointVolume', None)
+            if iface is None:
+                iface = cast(speakers.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None),
+                             POINTER(IAudioEndpointVolume))
+            self._vol = iface
             self.volume_backend = 'Core Audio'
         except Exception:
             self._vol = None
@@ -78,6 +83,8 @@ class OSController:
 
     @property
     def volume_available(self):
+        if not self._vol_tried:
+            self._volume_interface()      # ask the OS before answering
         return self.volume_backend != 'unavailable'
 
     def get_volume(self):

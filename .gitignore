@@ -1,5 +1,8 @@
 secrets.json
 .cache
+.venv/
+venv/
+lab_salt.txt
 __pycache__/
 *.pyc
 settings.json
