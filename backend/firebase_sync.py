@@ -311,6 +311,61 @@ class FirebaseSync:
         self._mark(path)
         return True, 'ok'
 
+    # ------------------------------------------------------------------ probe
+
+    def probe(self):
+        """Prove this station can actually write to the database. (ok, message).
+
+        Creates one tiny marker document and deletes it again, so a station can
+        be tested on the day without leaving research data behind. This is the
+        only check that proves the security rules, the anonymous identity and
+        the network all work together -- sign-in alone does not.
+        """
+        if not self.enabled:
+            return False, 'cloud sync is off (no firebase_config.json)'
+        try:
+            uid = self.uid
+        except Exception as e:
+            return False, 'anonymous sign-in failed: {}'.format(e)
+
+        doc_id = '_station_probe_' + ''.join(c for c in uid if c.isalnum())[:40]
+        collection_url = FIRESTORE_URL.format(project=self.config['project_id'],
+                                              path=self.config['collection'])
+        auth = {'Authorization': 'Bearer ' + self.token()}
+        body = {'fields': _fs_fields({
+            'kind':          'probe',
+            'uid':           uid,
+            'app':           'aura-ui',
+            'schema_version': SCHEMA_VERSION,
+            'at':            time.strftime('%Y-%m-%dT%H:%M:%S'),
+        })}
+        try:
+            self._request(collection_url + '?documentId=' + doc_id, body, headers=auth)
+        except urllib.error.HTTPError as e:
+            if e.code != 409:            # 409 = the earlier probe is still there
+                detail = ''
+                try:
+                    detail = (json.loads(e.read().decode('utf-8'))
+                              .get('error', {}).get('message', '') or '')
+                except Exception:
+                    pass
+                self.last_error = 'probe rejected: HTTP {}'.format(e.code)
+                return False, 'write rejected: HTTP {}{}'.format(
+                    e.code, ' - ' + detail[:120] if detail else '')
+        except Exception as e:
+            self.last_error = 'probe failed: {}'.format(e)
+            return False, 'cannot reach Firestore: {}'.format(str(e)[:120])
+
+        try:
+            self._request(collection_url + '/' + doc_id, method='DELETE', headers=auth)
+            self.last_error = ''
+            return True, 'write + delete confirmed'
+        except Exception:
+            # The write landed; a leftover probe doc is cosmetic and the rules
+            # still stop it from ever being read as participant data.
+            self.last_error = ''
+            return True, 'write confirmed (probe doc left behind: {})'.format(doc_id)
+
     # ------------------------------------------------------------------ queue
 
     @staticmethod

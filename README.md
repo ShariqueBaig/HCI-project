@@ -254,8 +254,10 @@ Settings, journal, `.cache` and the `data/` research store are created beside th
 consent, recording and Spotify steps in one page.
 
 **Running the study on several lab machines?** [docs/LAB_SETUP.md](docs/LAB_SETUP.md) covers the
-shared lab salt, per-participant station prep, the Spotify 5-account limit, and how to confirm
-every session reached Firestore.
+shared lab salt, per-participant station prep, Windows system-volume audio (Spotify is optional),
+where the data goes (Firestore project `aura-ui-hci`, collection `aura_sessions`), and
+`python tools/lab_setup.py check` — a live test that the station is named and can write to the
+database.
 
 ---
 

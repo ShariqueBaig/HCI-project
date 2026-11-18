@@ -15,6 +15,7 @@ A lab session has to be correct, every time, on several machines:
 Usage (from the project folder, or next to AuraUI.exe)
     python tools/lab_setup.py salt-init            # ONCE per lab, then copy lab_salt.txt everywhere
     python tools/lab_setup.py status               # is this station ready?
+    python tools/lab_setup.py check                # is it NAMED and does it reach the database? (real write test)
     python tools/lab_setup.py prepare --code P01   # before each participant
     python tools/lab_setup.py verify               # after the session: did it upload?
     python tools/lab_setup.py reset                # between participants
@@ -41,6 +42,10 @@ SALT_FILE   = os.path.join(DATA_DIR, 'lab_salt.txt')
 SETTINGS    = os.path.join(DATA_DIR, 'settings.json')
 SPOTIFY_CACHE = os.path.join(DATA_DIR, '.cache')
 DEFAULT_SETTINGS = {'participant_code': '', 'study_condition': 'intervention'}
+
+DB_ENDPOINT = ('https://firestore.googleapis.com/v1/projects/{project}'
+               '/databases/(default)/documents/{collection}')
+DB_CONSOLE  = 'https://console.firebase.google.com/project/{project}/firestore'
 
 
 # --------------------------------------------------------------------- helpers
@@ -166,6 +171,96 @@ def cmd_status(args):
     return 0
 
 
+def cmd_check(args):
+    """Answer the two questions that ruin a session if they are wrong:
+
+      * is this station NAMED (participant code, consent, pseudonym)?
+      * does it actually reach the database (a real write, not a ping)?
+    """
+    settings = load_settings()
+    code = (settings.get('participant_code') or '').strip()
+    st = research.consent_status()
+    salt = lab_salt()
+    named = True
+
+    print('Station name')
+    if not salt:
+        bad('no lab_salt.txt - this station invents its own salt, so its '
+            'pseudonyms will not match the other machines')
+        named = False
+    else:
+        ok('shared lab salt: ' + SALT_FILE)
+    if code:
+        ok('participant code: ' + code)
+        ok('pseudonym: ' + research.pseudonym(code))
+    else:
+        bad('no participant code - run: python tools/lab_setup.py prepare --code P01')
+        named = False
+    if st.get('granted'):
+        ok('consent on file ({}), pseudonym {}'.format(st.get('granted_at', ''),
+                                                       st.get('pseudonym', '?')))
+        if code and st.get('pseudonym') != research.pseudonym(code):
+            bad('consent pseudonym does not match this code - re-run prepare')
+            named = False
+    else:
+        bad('consent NOT on file - run: python tools/lab_setup.py prepare --code ...')
+        named = False
+    print('  condition  :', settings.get('study_condition'))
+    try:
+        from backend.os_controller import OSController
+        o = OSController()
+        if o.volume_available:
+            ok('audio: Windows system volume via ' + o.volume_backend)
+        else:
+            warn('audio: no system volume ({}) - install pycaw on Windows'.format(o.volume_backend))
+    except Exception as e:
+        warn('audio check failed: {}'.format(e))
+
+    print('\nDatabase')
+    s = sync()
+    cfg = s.config
+    print('  service    : Firebase Cloud Firestore (REST API, Anonymous sign-in)')
+    print('  project    :', cfg['project_id'] or '(none)')
+    print('  collection :', cfg['collection'])
+    if cfg['project_id']:
+        print('  console    :', DB_CONSOLE.format(project=cfg['project_id']))
+    if not s.enabled:
+        bad('cloud sync is DISABLED - sessions stay on this machine only')
+        return 1
+    try:
+        print('  station uid:', s.uid)
+    except Exception as e:
+        bad('anonymous sign-in failed: {}'.format(e))
+        print('           -> check internet, api_key and that Anonymous sign-in is enabled')
+        return 1
+    wrote, msg = s.probe()
+    if wrote:
+        ok('write test: ' + msg)
+    else:
+        bad('write test: ' + msg)
+        print('           -> usually unpublished Firestore rules or no internet')
+    try:
+        print('  pending    :', len(s.pending()), 'session(s) waiting to upload')
+    except Exception:
+        pass
+
+    rows = sorted(session_rows(), key=lambda r: os.path.getmtime(r[0]), reverse=True)[:5]
+    print('\nSessions recorded on this station')
+    if not rows:
+        print('  (none yet)')
+    for path, n_ticks, finished, synced in rows:
+        name = os.path.basename(os.path.dirname(path)) or '?'
+        state = ('named, uploaded' if synced else
+                 ('named, NOT uploaded' if finished else 'named, unfinished'))
+        print('  {}  {:>6} ticks  {}'.format(name, n_ticks, state))
+
+    if named and wrote:
+        print('\n[ok] this station is named and can write to Firestore')
+        return 0
+    print('\n[FAIL] fix the items marked above before the participant arrives')
+    return 1
+
+
 def cmd_prepare(args):
     print('Preparing station for participant', args.code)
     code = args.code.strip().upper()
@@ -234,7 +329,8 @@ def cmd_prepare(args):
     print('\n  Hand the machine over. Participant checklist:')
     print('    1. Launch Aura UI.')
     print('    2. Tick "Record session" when the task starts.')
-    print('    3. Optionally: Connect Spotify (or leave it - system volume is used).')
+    print('    3. Windows system volume is already the audio path - only link')
+    print('       Spotify if this participant asked to and the account is allowlisted.')
     print('    4. Finish: Journal -> ratings -> Save entry.')
     print('    5. Then run: python tools/lab_setup.py verify')
     return 0
@@ -312,6 +408,9 @@ def main(argv=None):
 
     p = sub.add_parser('status', help='show whether this station is ready')
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser('check', help='test the participant name + a real database write')
+    p.set_defaults(func=cmd_check)
 
     p = sub.add_parser('prepare', help='set up this station for one participant')
     p.add_argument('--code', required=True, help='participant code, e.g. P01')

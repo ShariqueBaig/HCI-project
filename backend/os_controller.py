@@ -3,7 +3,10 @@ import math
 import struct
 import sys
 
-import screen_brightness_control as sbc
+try:
+    import screen_brightness_control as sbc
+except Exception:      # brightness is an intervention, never a hard dependency
+    sbc = None
 
 # Windows volume media-key codes (used when pycaw is not installed).
 VK_VOLUME_MUTE = 0xAD
@@ -34,6 +37,8 @@ class OSController:
     # ------------------------------------------------------------- brightness
 
     def get_brightness(self) -> int:
+        if sbc is None:
+            return 100
         try:
             levels = sbc.get_brightness()
             if levels:
@@ -43,6 +48,8 @@ class OSController:
         return 100
 
     def set_brightness(self, level: int):
+        if sbc is None:
+            return
         try:
             level = max(0, min(100, int(level)))
             sbc.set_brightness(level)
