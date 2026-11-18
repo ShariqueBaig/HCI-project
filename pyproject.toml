@@ -26,6 +26,9 @@ dependencies = [
     "pystray",
     "Pillow",
     "spotipy",
+    # Exact Windows master-volume control for the no-Spotify fallback.
+    # Without it the app falls back to the volume media keys.
+    'pycaw; sys_platform == "win32"',
 ]
 
 [project.optional-dependencies]

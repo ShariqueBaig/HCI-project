@@ -220,7 +220,9 @@ Aura UI compiles into a single self-contained **AuraUI.exe** - download, double-
 No Python, no config files to place, nothing to edit.
 
 ```bash
-python -m PyInstaller --onefile --noconsole --name "AuraUI" --add-data "aura_defaults.json;." run.py
+python -m PyInstaller --onefile --noconsole --name "AuraUI" \
+       --add-data "aura_defaults.json;." \
+       --hidden-import pycaw --hidden-import comtypes run.py
 ```
 
 Once the build finishes:
@@ -250,6 +252,10 @@ Settings, journal, `.cache` and the `data/` research store are created beside th
 
 **Handing the exe to testers?** Give them [docs/TESTER_NOTES.md](docs/TESTER_NOTES.md) — SmartScreen,
 consent, recording and Spotify steps in one page.
+
+**Running the study on several lab machines?** [docs/LAB_SETUP.md](docs/LAB_SETUP.md) covers the
+shared lab salt, per-participant station prep, the Spotify 5-account limit, and how to confirm
+every session reached Firestore.
 
 ---
 
