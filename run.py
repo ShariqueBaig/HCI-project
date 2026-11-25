@@ -1385,6 +1385,13 @@ class AmbientApp:
                        selectcolor=SURF, activebackground=BG,
                        font=('Arial', 8)).pack(anchor='w')
 
+        # Which audio path auto-lower drives: the linked Spotify account, or the
+        # Windows system volume when nobody linked an account (lab machines and
+        # participants who do not use Spotify).
+        self._audio_mode_var = tk.StringVar(value='Audio: detecting...')
+        tk.Label(wrap, textvariable=self._audio_mode_var, bg=BG, fg=FAINT,
+                 font=('Arial', 7), anchor='w').pack(fill='x', pady=(2, 0))
+
         # Explicit account linking: nothing authenticates until this is pressed.
         self._sp_status_var = tk.StringVar(value=self.spotify.status)
         tk.Label(wrap, textvariable=self._sp_status_var, bg=BG, fg=FAINT,
@@ -1543,21 +1550,37 @@ class AmbientApp:
                 if self._track_cache and self._vol_current is None:
                     self._vol_current = float(self._track_cache['volume'])
 
-            # Volume ramp
-            if (self.auto_music.get() and self.spotify.available
-                    and self._vol_target is not None
-                    and self._vol_current is not None):
-                target = float(self._vol_target)
-                diff   = target - self._vol_current
-                if abs(diff) > 0.5:
-                    self._vol_current += VOL_STEP if diff > 0 else -VOL_STEP
-                    # Don't overshoot
-                    if abs(target - self._vol_current) < VOL_STEP:
-                        self._vol_current = target
-                    self.spotify.set_volume(int(round(self._vol_current)))
-            elif self._track_cache and not self.auto_music.get():
-                # Track actual volume when not in auto mode
-                self._vol_current = float(self._track_cache['volume'])
+            # Volume ramp: the linked Spotify account when there is one,
+            # otherwise the Windows system volume (Core Audio / volume keys).
+            if self.auto_music.get() and self._vol_target is not None:
+                current = self._read_audio_volume()
+                if current is not None:
+                    target = float(self._vol_target)
+                    if abs(target - current) >= VOL_STEP:
+                        current += VOL_STEP if target > current else -VOL_STEP
+                    else:
+                        current = target
+                    self._set_audio_volume(int(round(current)))
+                    self._vol_current = current
+            else:
+                self._vol_current = self._read_audio_volume()
+
+    # ------- audio routing (Spotify account, else Windows system volume) -----
+
+    def _audio_available(self):
+        return self.spotify.available or self.os_ctrl.volume_available
+
+    def _read_audio_volume(self):
+        """Current output volume 0-100, or None when it cannot be read."""
+        if self.spotify.available and self._track_cache:
+            return float(self._track_cache.get('volume') or 0)
+        return self.os_ctrl.get_volume()
+
+    def _set_audio_volume(self, level):
+        if self.spotify.available:
+            self.spotify.set_volume(level)
+        else:
+            self.os_ctrl.set_volume(level)
 
     def _sp_toggle(self):
         """Connect (opens the browser once) or forget the saved Spotify login."""
@@ -1848,9 +1871,15 @@ class AmbientApp:
             self._vol_var.set('--')
             self._sp_dot.config(fg=MILD)
         else:
-            self._track_var.set('Not connected')
-            self._artist_var.set(self.spotify.status or '—')
-            self._vol_var.set('--')
+            # No Spotify account: show and drive the Windows system volume.
+            # Use the cached value - a COM read 10x/second is wasteful.
+            sysvol = self._vol_current if self._vol_current is not None \
+                else self.os_ctrl.get_volume()
+            self._track_var.set('System audio' if self.os_ctrl.volume_available
+                                else 'Not connected')
+            self._artist_var.set('Windows volume' if self.os_ctrl.volume_available
+                                 else (self.spotify.status or '—'))
+            self._vol_var.set('{}%'.format(sysvol) if sysvol is not None else '--')
             self._sp_dot.config(fg=FAINT)
 
         # --- cloud sync status ------------------------------------------------
@@ -1869,12 +1898,18 @@ class AmbientApp:
             self._cloud_var.set('off  ·  add firebase_config.json')
             self._cloud_dot.config(fg=FAINT)
 
-        # Auto-volume: set target based on current tier, loop ramps smoothly
-        if (not self._is_control()) and self.auto_music.get() and self.spotify.available and t:
+        # Auto-volume: set target based on current tier, loop ramps smoothly.
+        # Works on the linked Spotify account or, failing that, system volume.
+        if (not self._is_control()) and self.auto_music.get() and self._audio_available():
             vol_keys = ['vol_calm', 'vol_mild', 'vol_elev']
             self._vol_target = self.settings[vol_keys[self.engine.tier]]
         else:
             self._vol_target = None
+        self._audio_mode_var.set(
+            'Audio: Spotify' if self.spotify.available else
+            ('Audio: Windows volume ({})'.format(self.os_ctrl.volume_backend)
+             if self.os_ctrl.volume_available else
+             'Audio: unavailable - install pycaw for system volume'))
 
         # --- notification muting ---------------------------------------------
         self.stats.tick(self.engine.score, self.engine.tier, self._demo_target is not None)

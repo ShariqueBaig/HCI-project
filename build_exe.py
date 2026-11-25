@@ -36,6 +36,8 @@ def main():
         '--collect-submodules', 'uvicorn',
         '--hidden-import', 'backend.search.server',
         '--hidden-import', 'backend.search.window',
+        # exact Windows system volume for the no-Spotify audio fallback (lab stations)
+        '--hidden-import', 'pycaw', '--hidden-import', 'comtypes',
         # optional, heavy: camera support stays out of the exe
         '--exclude-module', 'cv2',
         '--exclude-module', 'onnxruntime',

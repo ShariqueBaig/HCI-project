@@ -274,6 +274,12 @@ Settings, journal, `.cache` and the `data/` research store are created beside th
 **Handing the exe to testers?** Give them [docs/TESTER_NOTES.md](docs/TESTER_NOTES.md) — SmartScreen,
 consent, recording and Spotify steps in one page.
 
+**Running the study on several lab machines?** [docs/LAB_SETUP.md](docs/LAB_SETUP.md) covers the
+shared lab salt, per-participant station prep, Windows system-volume audio (Spotify is optional),
+where the data goes (Firestore project `aura-ui-hci`, collection `aura_sessions`), and
+`python tools/lab_setup.py check` — a live test that the station is named and can write to the
+database.
+
 ---
 
 ## 📊 Session Visualization & Evaluation

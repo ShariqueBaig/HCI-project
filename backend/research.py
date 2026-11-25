@@ -184,7 +184,24 @@ def purge_expired(days=180):
 # --------------------------------------------------------------- pseudonyms
 
 def _salt():
-    """Per-install random salt; kept out of version control and out of exports."""
+    """Per-install random salt -- or a lab-wide one when the study provides it.
+
+    A shared salt (``AURA_LAB_SALT`` or a ``lab_salt.txt`` written by
+    ``tools/lab_setup.py``) makes the same participant code map to the same
+    pseudonym on every lab machine, so one person's sessions can be joined
+    across stations and deleted together. Kept out of version control and out
+    of every export either way.
+    """
+    shared = (os.environ.get('AURA_LAB_SALT') or '').strip()
+    if shared:
+        return shared
+    try:
+        with open(os.path.join(base_dir(), 'lab_salt.txt'), encoding='utf-8') as f:
+            lab = f.read().strip()
+        if lab:
+            return lab
+    except Exception:
+        pass
     try:
         with open(SALT_FILE, encoding='utf-8') as f:
             s = f.read().strip()

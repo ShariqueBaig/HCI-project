@@ -29,6 +29,9 @@ dependencies = [
     # Aura Search (local server inside Aura; optional at runtime -- Aura runs without it)
     "fastapi",
     "uvicorn",
+    # Exact Windows master-volume control for the no-Spotify fallback.
+    # Without it the app falls back to the volume media keys.
+    'pycaw; sys_platform == "win32"',
 ]
 
 [project.optional-dependencies]
