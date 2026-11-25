@@ -647,8 +647,13 @@ class AmbientApp:
 
     def _open_journal(self, closing_session=False):
         self._closing_via_journal = bool(closing_session or self._collector is not None)
-        banner = ('Session stopped \u00b7 set your 0-10 ratings and click Save entry to finalize.'
-                  if closing_session else '')
+        if closing_session:
+            banner = 'Session stopped \u00b7 set your 0-10 ratings and click Save entry to finalize.'
+        elif self._collector is not None:
+            banner = ('Recording \u00b7 Save entry finalizes this session \u00b7 '
+                      'Close keeps recording.')
+        else:
+            banner = ''
         if self._journal_win and self._journal_win.winfo_exists():
             if hasattr(self, '_j_closing_lbl'):
                 self._j_closing_lbl.config(text=banner)
@@ -729,7 +734,10 @@ class AmbientApp:
                                      self.root.winfo_y()))
 
     def _journal_close(self):
-        if getattr(self, '_closing_via_journal', False) and self._collector is not None:
+        # Only end the session when the user actually cleared "Record session".
+        # Opening the journal mid-session to read or draft a note must not
+        # silently stop the recording.
+        if self._collector is not None and not self.record_var.get():
             self._close_log()
         self._closing_via_journal = False
         if self._journal_win and self._journal_win.winfo_exists():
@@ -883,6 +891,8 @@ class AmbientApp:
     def _close_log(self, sync=True):
         if hasattr(self, '_rec_chk'):
             self._rec_chk.config(text='Record session', fg=MUTED)
+        if hasattr(self, 'record_var'):
+            self.record_var.set(False)      # no session -> checkbox must be clear
         if self._collector:
             try:
                 self._collector.end(self.stats.summary())

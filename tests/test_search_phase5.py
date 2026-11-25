@@ -138,6 +138,21 @@ class ConsentTests(unittest.TestCase):
                 self.assertNotIn('late', f.read())
 
 
+class DamagedLogTests(unittest.TestCase):
+    def test_half_written_line_does_not_break_search_export(self):
+        with TempResearchDir() as tmp:
+            research.give_consent('P6')
+            c = research.ResearchCollector('P6')
+            c.log_search({'search_id': 's1', 'query': 'q'})
+            c.end({})
+            with open(c.session_path, 'a', encoding='utf-8') as f:
+                f.write('{"type": "search", "half-writ')            # force-quit mid-line
+            self.assertFalse(research.verify_session(c.session_path)[0])   # still flagged
+            out = research.export_dataset(os.path.join(tmp.dir, 'exports'))
+            self.assertEqual(out['searches_rows'], 1)
+            self.assertEqual(out['sessions'], 1)
+
+
 class MockTrialTests(unittest.TestCase):
     """The Phase 5 acceptance test: consent -> Record -> 3 tasks -> surveys -> Journal."""
 

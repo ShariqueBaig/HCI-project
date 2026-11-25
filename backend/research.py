@@ -496,13 +496,29 @@ class ResearchCollector:
 # ------------------------------------------------------------------- export
 
 def _read_session(path):
+    """Parse a session log into (header, ticks, summary).
+
+    A force-quit or power cut can leave the last line half-written, and one bad
+    byte used to abort every caller: the CSV export, the upload queue and the
+    charts. Unparseable lines are skipped (and reported) instead, so the rest of
+    the session survives. verify_session() stays strict and still flags the file
+    as damaged.
+    """
     header, ticks, summary = {}, [], {}
+    bad = 0
     with open(path, encoding='utf-8') as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            rec = json.loads(line)
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                bad += 1
+                continue
+            if not isinstance(rec, dict):
+                bad += 1
+                continue
             t = rec.get('type')
             if t == 'header':
                 header = rec
@@ -510,6 +526,9 @@ def _read_session(path):
                 ticks.append(rec)
             elif t == 'summary':
                 summary = rec
+    if bad:
+        print('[research] {} unreadable line(s) skipped in {}'.format(
+            bad, os.path.basename(path)), file=sys.stderr)
     return header, ticks, summary
 
 
@@ -522,7 +541,12 @@ def _read_session_full(path):
             line = line.strip()
             if not line:
                 continue
-            rec = json.loads(line)
+            try:                         # half-written line after a force-quit: skip it
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(rec, dict):
+                continue
             t = rec.get('type')
             if t in ('header', 'summary'):
                 out[t] = rec
@@ -570,7 +594,7 @@ def export_dataset(dest_dir, dedupe=True):
                   'journal_note', 'journal_reflection'])
 
     seen = set()
-    n_s, n_t = 0, 0
+    n_s, n_t, n_skip = 0, 0, 0
     with open(ticks_path, 'w', encoding='utf-8', newline='') as tf, \
          open(sess_path, 'w', encoding='utf-8', newline='') as sf:
         tw, sw = csv.DictWriter(tf, fieldnames=tick_cols), csv.DictWriter(sf, fieldnames=sess_cols)
@@ -581,7 +605,15 @@ def export_dataset(dest_dir, dedupe=True):
                 if path in seen:
                     continue
                 seen.add(path)
-            header, ticks, summary = _read_session(path)
+            try:
+                header, ticks, summary = _read_session(path)
+            except Exception as e:      # unreadable file: skip it, keep exporting
+                print('[research] skipped {}: {}'.format(
+                    os.path.basename(path), e), file=sys.stderr)
+                continue
+            if not header or not summary:
+                n_skip += 1             # aborted/crashed session: no end state to export
+                continue
             sid = header.get('session_id') or os.path.basename(path)[:-6]
             for rec in ticks:
                 row = {'session_id': sid, 't': rec.get('t'), 'score': rec.get('score'),
@@ -612,7 +644,7 @@ def export_dataset(dest_dir, dedupe=True):
                 'journal_reflection': (summary.get('journal') or {}).get('reflection'),
             })
             n_s += 1
-    res = {'ticks': n_t, 'sessions': n_s,
+    res = {'ticks': n_t, 'sessions': n_s, 'skipped': n_skip,
            'ticks_csv': ticks_path, 'sessions_csv': sess_path}
     res.update(_export_search(dest_dir))
     return res
@@ -650,7 +682,13 @@ def _export_search(dest_dir):
         for x in w.values():
             x.writeheader()
         for path in list_sessions():
-            d = _read_session_full(path)
+            try:
+                d = _read_session_full(path)
+            except Exception as e:      # unreadable file: skip it, keep exporting
+                print('[research] skipped {}: {}'.format(os.path.basename(path), e), file=sys.stderr)
+                continue
+            if not d['header'] or not d['summary']:
+                continue                # aborted/crashed session, as in export_dataset()
             h = d['header']
             base = {'session_id': h.get('session_id') or os.path.basename(path)[:-6],
                     'pseudonym': h.get('pseudonym'), 'condition': h.get('condition')}
