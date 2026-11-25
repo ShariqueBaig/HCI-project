@@ -4,3 +4,5 @@ pystray
 Pillow
 spotipy
 pyinstaller
+fastapi
+uvicorn

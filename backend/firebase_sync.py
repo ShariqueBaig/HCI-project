@@ -232,6 +232,13 @@ class FirebaseSync:
             'journal_reflection': jr.get('reflection'),
             'journal_note_chars': jr.get('note_chars'),
         }
+        # Consent v4: Aura Search aggregates only -- counts and scores, never queries.
+        srch = s.get('search') or {}
+        for k in ('searches', 'reformulations', 'offers', 'accepted', 'dismissed', 'undone',
+                  'expired', 'counterfactual', 'standard_view', 'backtracks', 'tasks',
+                  'surveys', 'sus_mean'):
+            if k in srch:
+                doc['search_' + k] = srch[k]
         # Tick stream: numeric fields only, capped so long sessions stay < 1 MiB.
         # Local .jsonl files retain all 3 Hz ticks untouched.
         n_ticks = len(ticks)

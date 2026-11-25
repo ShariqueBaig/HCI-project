@@ -15,12 +15,41 @@ from backend.paths import base_dir, bundled_json
 
 DATA_DIR = base_dir()
 SECRETS_FILE = os.path.join(DATA_DIR, 'secrets.json')
-MODELS = [
-    'nvidia/nemotron-3-super-120b-a12b:free',
-    'meta-llama/llama-3.3-70b-instruct:free',
-    'google/gemma-3-27b-it:free',
+# OpenRouter models, tried in order. The free catalogue changes often: the
+# previous list (nemotron-3-super, llama-3.3-70b, gemma-3-27b) started returning
+# HTTP 404 "unavailable for free" in Nov 2026. Override without a code change by
+# putting "openrouter_models": [...] in secrets.json. Benchmarked 2026-11-25 on
+# the Aura Search Stage A prompt: ernie 9.7 s, ling 17.8 s.
+DEFAULT_MODELS = [
+    # Cheap paid models first (need a little OpenRouter credit): fast and not
+    # rate-limited. Benchmarked 2026-11-25 on the Stage A prompt:
+    # gpt-oss-20b 3.3 s / $0.00008 per search; gpt-4.1-nano 3.4 s / $0.0004;
+    # mistral-small 11.7 s / $0.00018. Pinned ids only, no "~latest" aliases,
+    # so study sessions stay reproducible (the model used is logged per search).
+    'openai/gpt-oss-20b',
+    'openai/gpt-4.1-nano',
+    'mistralai/mistral-small-24b-instruct-2501',
+    # Free fallbacks (slower, sometimes rate-limited)
+    'baidu/ernie-5.5-flash-preview:free',
+    'inclusionai/ling-3.2-flash:free',
+    'google/gemma-4-31b-it:free',
+    'google/gemma-4-26b-a4b-it:free',
     'openrouter/free',
 ]
+
+
+def _load_models():
+    try:
+        with open(SECRETS_FILE, encoding='utf-8') as f:
+            custom = json.load(f).get('openrouter_models')
+        if isinstance(custom, list) and all(isinstance(m, str) and m for m in custom) and custom:
+            return custom
+    except Exception:
+        pass
+    return list(DEFAULT_MODELS)
+
+
+MODELS = _load_models()
 ENDPOINT     = 'https://openrouter.ai/api/v1/chat/completions'
 
 SYSTEM_INSTRUCTION = (
@@ -71,8 +100,9 @@ class LLMController:
         body = json.dumps({
             'model': model,
             'messages': [{'role': 'system', 'content': system}] + messages,
-            'max_tokens': 400,
-            'reasoning': {'exclude': True},   # keep the model's thinking out of the reply
+            'max_tokens': 600,
+            # all current free models reason; keep it short and out of the reply
+            'reasoning': {'effort': 'low', 'exclude': True},
         }).encode()
         req = urllib.request.Request(
             ENDPOINT, data=body, method='POST',
@@ -130,6 +160,93 @@ class LLMController:
             "Thanks for naming that out loud. Once you feel ready to return to your flow, click \"I'm Good\" above."
         ]
         return followups[turn_index % len(followups)]
+
+    # ------- structured JSON output (Aura Search) ---------------------------
+
+    @staticmethod
+    def extract_json(text):
+        """Parse a JSON object from a model reply, tolerating ```json fences and
+        leading/trailing prose. Raises ValueError when no object can be found."""
+        t = (text or '').strip()
+        if t.startswith('```'):
+            t = t.split('\n', 1)[1] if '\n' in t else ''
+            if t.rstrip().endswith('```'):
+                t = t.rstrip()[:-3]
+        try:
+            obj = json.loads(t)
+            if isinstance(obj, dict):
+                return obj
+        except ValueError:
+            pass
+        start = t.find('{')
+        while start != -1:
+            depth, in_str, esc = 0, False, False
+            for i in range(start, len(t)):
+                ch = t[i]
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif ch == '\\':
+                        esc = True
+                    elif ch == '"':
+                        in_str = False
+                elif ch == '"':
+                    in_str = True
+                elif ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        try:
+                            obj = json.loads(t[start:i + 1])
+                            if isinstance(obj, dict):
+                                return obj
+                        except ValueError:
+                            pass
+                        break
+            start = t.find('{', start + 1)
+        raise ValueError('no JSON object in model reply')
+
+    def _complete_json_model(self, model, messages, max_tokens, timeout, temperature):
+        body = json.dumps({
+            'model': model,
+            'messages': messages,
+            'max_tokens': max_tokens,
+            'temperature': temperature,
+            'response_format': {'type': 'json_object'},
+            'reasoning': {'effort': 'low', 'exclude': True},
+        }).encode()
+        req = urllib.request.Request(
+            ENDPOINT, data=body, method='POST',
+            headers={'Content-Type': 'application/json',
+                     'Authorization': 'Bearer ' + self.key,
+                     'X-Title': 'Aura UI'})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            data = json.load(r)
+        choice = data['choices'][0]
+        if choice.get('finish_reason') == 'length':
+            raise RuntimeError('reply truncated at max_tokens')
+        return self.extract_json(choice['message'].get('content') or '')
+
+    def complete_json(self, messages, max_tokens=4000, timeout=30, temperature=0.2,
+                      models=None):
+        """Return (parsed_dict, model_used). Tries each model in turn and moves on
+        when a reply is not valid JSON. Raises RuntimeError when every model fails
+        or no key is configured -- callers fall back to their offline path."""
+        if not self.key:
+            raise RuntimeError('No OpenRouter API key configured')
+        last_err = None
+        for model in (models or MODELS):
+            try:
+                return self._complete_json_model(model, messages, max_tokens, timeout,
+                                                 temperature), model
+            except urllib.error.HTTPError as e:
+                last_err = RuntimeError('OpenRouter HTTP {} ({})'.format(e.code, model))
+                if e.code in (401, 403):
+                    break
+            except Exception as e:
+                last_err = RuntimeError('{}: {}'.format(model, e))
+        raise last_err or RuntimeError('All OpenRouter models failed')
 
     def generate(self, prompt, system):
         """One-shot completion that does not touch the chat history."""

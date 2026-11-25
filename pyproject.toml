@@ -26,6 +26,9 @@ dependencies = [
     "pystray",
     "Pillow",
     "spotipy",
+    # Aura Search (local server inside Aura; optional at runtime -- Aura runs without it)
+    "fastapi",
+    "uvicorn",
 ]
 
 [project.optional-dependencies]
@@ -33,6 +36,10 @@ dependencies = [
 plots = ["matplotlib"]
 # Standalone AuraUI.exe build
 build = ["pyinstaller"]
+# Native search window (otherwise Aura Search opens in Edge app mode / the browser)
+window = ["pywebview"]
+# Optional webcam affect sensor for Aura Search (off by default)
+vision = ["opencv-python", "onnxruntime", "numpy"]
 
 # gui-scripts -> a windowed launcher (no console window behind the widget)
 [project.gui-scripts]
@@ -42,5 +49,5 @@ aura-ui = "run:main"
 Source = "https://github.com/ShariqueBaig/HCI-project"
 
 [tool.setuptools]
-packages = ["backend"]
+packages = ["backend", "backend.search", "backend.vision"]
 py-modules = ["run", "plot_session"]

@@ -35,6 +35,18 @@ from backend.llm_controller import LLMController, OPENER
 from backend import journal as journal_store
 from backend import research
 from backend import firebase_sync
+from backend.stress_engine import StressEngine
+from backend.search.live_state import LiveStateStore, build_snapshot
+
+# Aura Search (state-aware generative-UI search) is optional: if its server
+# dependencies (fastapi, uvicorn) are missing, Aura runs exactly as before.
+try:
+    from backend.search.server import SearchServer
+    from backend.search.window import open_search_window
+    SEARCH_OK = True
+except ImportError as _search_err:
+    SEARCH_OK = False
+    SEARCH_IMPORT_ERROR = str(_search_err)
 
 try:
     import pystray
@@ -101,101 +113,8 @@ class Settings:
     def __setitem__(self, k, v):   self.data[k] = v; self.save()
 
 
-class StressEngine:
-    TIER_LABELS = ['Calm', 'Mild', 'Elevated']
-    TIER_COLORS = [CALM,   MILD,   ELEV]
-
-    def __init__(self, settings):
-        self.settings = settings
-        self.smoothed = 10.0
-        self._tier    = 0
-
-    def update(self, features):
-        kps = features.get('keys_per_second', 0)
-        m_px = features.get('mouse_distance', 0)
-        
-        if kps < 0.2 and m_px < 3000:
-            speed = self.settings['decay_speed']
-            # Proportional + linear release so Elevated stress recovers in ~3-4s instead of 15.3s
-            step = (self.smoothed * 0.14 + 2.2) * speed if self.smoothed > 10 else 0.4 * speed
-            self.smoothed = max(0.0, self.smoothed - step)
-            return
-            
-        mf  = features.get('mean_flight', 0)
-        sf  = features.get('std_flight',  0)
-        err = features.get('error_rate',  0)
-        # Require ≥3 flight samples before trusting CoV — fewer samples produce
-        # wildly unstable std/mean ratios right after resuming from a long pause.
-        fc  = features.get('flight_count', 0)
-        cov = min(sf / mf, 3.0) if (mf > 0 and fc >= 3) else 0
-
-        cov_adj = max(0.0, cov - self.settings['baseline_cov'])
-        err_adj = max(0.0, err - self.settings['baseline_err'])
-
-        # Long press penalty: dwell times > 150ms indicate heavy/long presses.
-        # Scales up to a 40% raw stress boost at 400ms dwell.
-        md = features.get('mean_dwell', 0)
-        dwell_penalty = min(max(0.0, md - 0.15) / 0.25, 1.0)
-
-        # Mouse jitter penalty: Excessive mouse movement indicates agitation.
-        # Rapid shaking > 10000px in 5s boosts stress heavily.
-        mouse_penalty = min(max(0.0, m_px - 10000) / 6000.0, 1.0)
-
-        cw    = self.settings['cov_weight']
-        ew    = self.settings['error_weight']
-        total = (cw + ew) or 1.0  
-        raw_score = min(
-            (cw / total) * min(cov_adj / 1.0, 1.0) +
-            (ew / total) * min(err_adj / 0.15, 1.0) +
-            0.4 * dwell_penalty +
-            0.8 * mouse_penalty,
-            1.0
-        ) * self.settings['sensitivity']
-        raw_score = min(raw_score, 1.0)
-
-        alpha = self.settings['smoothing']
-        raw   = 100.0 * (raw_score ** 1.1)
-        self.smoothed = self.smoothed * (1 - alpha) + raw * alpha
-
-    def inject_stress(self, level=82):
-        self.smoothed = self.smoothed * 0.4 + level * 0.6
-
-    @property
-    def score(self):             return self.smoothed
-    @property
-    def tier(self):
-        s = self.smoothed
-        # Hysteresis prevents flickering around tier boundaries:
-        # Enter Mild at >=30, exit at <26; enter Elevated at >=60, exit at <52.
-        if self._tier == 2:
-            if s < 26:
-                self._tier = 0
-            elif s < 52:
-                self._tier = 1
-        elif self._tier == 1:
-            if s >= 60:
-                self._tier = 2
-            elif s < 26:
-                self._tier = 0
-        else:
-            if s >= 60:
-                self._tier = 2
-            elif s >= 30:
-                self._tier = 1
-        return self._tier
-    @property
-    def label(self):             return self.TIER_LABELS[self.tier]
-    @property
-    def color(self):             return self.TIER_COLORS[self.tier]
-    @property
-    def target_brightness(self):
-        keys = ['bright_calm', 'bright_mild', 'bright_elev']
-        return int(self.settings[keys[self.tier]])
-
-    @property
-    def target_temp(self):
-        keys = ['temp_calm', 'temp_mild', 'temp_elev']
-        return int(self.settings[keys[self.tier]])
+# StressEngine lives in backend/stress_engine.py; re-exported here so
+# `from run import StressEngine` (experiments/run_experiment.py) keeps working.
 
 
 class BreathingPopup:
@@ -462,6 +381,10 @@ class AmbientApp:
         self.sync                = firebase_sync.FirebaseSync()
         self._sync_status        = self.sync.status_line()
         self._pending_n          = 0
+        # Aura Search: live-state snapshot shared with the local search server
+        self.live_state          = LiveStateStore()
+        self.search_server       = None
+        self._search_hotkey      = None
         self._build_window()
 
     # ------- window ----------------------------------------------------------
@@ -598,6 +521,16 @@ class AmbientApp:
                   bg=SURF, fg=MUTED, relief='flat',
                   font=('Arial', 9), activebackground=BORDER,
                   activeforeground=TEXT, cursor='hand2', pady=4).pack(side='right')
+
+        # Aura Search -- also Ctrl+Shift+Space and the tray menu
+        search_row = tk.Frame(self._left, bg=BG)
+        search_row.pack(fill='x', padx=20, pady=(0, 4))
+        self._search_btn = tk.Button(search_row, text='Search   (Ctrl+Shift+Space)',
+                                     command=self._open_search,
+                                     bg=SURF, fg=TEXT, relief='flat',
+                                     font=('Arial', 9), activebackground=BORDER,
+                                     activeforeground=CALM, cursor='hand2', pady=4)
+        self._search_btn.pack(fill='x')
 
         # Calibration & Condition row
         cal_row = tk.Frame(self._left, bg=BG)
@@ -1002,6 +935,12 @@ class AmbientApp:
                  highlightbackground=BORDER, highlightthickness=1).pack(
                  side='left', fill='x', expand=True)
 
+        # Consent v4 item (6): searches may be kept as text or only as a scrambled code.
+        queries_var = tk.BooleanVar(value=bool(research.consent_status().get('store_queries', True)))
+        tk.Checkbutton(win, text='Keep the words of my Aura searches (untick: only a scrambled code)',
+                       variable=queries_var, bg=BG, fg=MUTED, selectcolor=SURF,
+                       activebackground=BG, font=('Arial', 8)).pack(anchor='w', padx=12)
+
         status = tk.Label(win, text='', bg=BG, fg=MUTED, font=('Arial', 8),
                           wraplength=380, justify='left')
         status.pack(anchor='w', padx=16, pady=(4, 0))
@@ -1024,7 +963,8 @@ class AmbientApp:
                 status.config(fg=ELEV, text='Enter a participant code first.')
                 return
             try:
-                research.give_consent(code, note='consent given in app')
+                research.give_consent(code, note='consent given in app',
+                                      store_queries=queries_var.get())
             except Exception as e:
                 status.config(fg=ELEV, text='Could not save consent: {}'.format(e))
                 return
@@ -1490,12 +1430,64 @@ class AmbientApp:
 
     def _start(self):
         self.daemon.start()
+        self._start_search()
         threading.Thread(target=self._brightness_loop, daemon=True).start()
         threading.Thread(target=self._spotify_loop,    daemon=True).start()
         if self.sync.enabled:
             self._sync_refresh()
             threading.Thread(target=self._sync_loop, daemon=True).start()
         self._poll()
+
+    # ------- Aura Search ------------------------------------------------------
+
+    def _start_search(self):
+        """Start the local search server thread and the global hotkey. Never fatal."""
+        if not SEARCH_OK:
+            print('[Aura UI] search disabled (pip install fastapi uvicorn):', SEARCH_IMPORT_ERROR)
+            self._search_btn.config(state='disabled', text='Search unavailable (pip install fastapi uvicorn)')
+            return
+        try:
+            # Search records go into Aura's own consented recording, if one is running.
+            self.search_server = SearchServer(self.live_state,
+                                              get_collector=lambda: self._collector).start()
+            print('[Aura UI] search  :', self.search_server.url)
+        except Exception as e:
+            print('[Aura UI] search server failed to start:', e)
+            self.search_server = None
+        try:
+            from pynput import keyboard as _kb
+            self._search_hotkey = _kb.GlobalHotKeys(
+                {'<ctrl>+<shift>+<space>': lambda: self.root.after(0, self._open_search)})
+            self._search_hotkey.daemon = True
+            self._search_hotkey.start()
+        except Exception as e:
+            print('[Aura UI] search hotkey unavailable:', e)
+
+    def _open_search(self):
+        srv = self.search_server
+        if srv is None or not srv.wait_started(timeout=2.0):
+            err = (srv.error if srv else None) or 'server not running'
+            show_toast(self.root, 'Aura Search', 'Search is unavailable: ' + err[:80], kind='blocked')
+            return
+        how = open_search_window(srv.url)
+        print('[Aura UI] search window opened via', how)
+
+    def _publish_live_state(self, feats, blocking):
+        """Hand the search server a copy of this tick's state (Tk thread only)."""
+        try:
+            self.live_state.set(build_snapshot(
+                score=self.engine.score, tier=self.engine.tier, features=feats,
+                condition=self.settings['study_condition'],
+                calibrated=self.settings['is_calibrated'],
+                baseline_cov=self.settings['baseline_cov'],
+                baseline_err=self.settings['baseline_err'],
+                dnd_active=self._dnd_active, focus_blocking=blocking,
+                breathing_active=bool(self._breathing_popup and self._breathing_popup.alive()),
+                held_count=len(self._held), simulated=self._sim_ticks > 0,
+                demo=self._demo_target is not None, recording=self._collector is not None,
+                brightness=self._last_bright, session_stats=self.stats.summary()))
+        except Exception as e:
+            print('[Aura UI] live-state publish failed:', e)
 
     # ------- optional cloud sync (Firebase) -----------------------------------
 
@@ -1910,6 +1902,8 @@ class AmbientApp:
             if popup_gone and cooldown_ok:
                 self._start_breathing()
 
+        self._publish_live_state(feats, blocking)
+
     # ------- tray ------------------------------------------------------------
 
     def _make_icon(self):
@@ -1921,6 +1915,7 @@ class AmbientApp:
     def _setup_tray(self):
         menu = pystray.Menu(
             pystray.MenuItem('Show / Hide', lambda i, it: self.root.after(0, self._toggle)),
+            pystray.MenuItem('Aura Search', lambda i, it: self.root.after(0, self._open_search)),
             pystray.MenuItem('Quit',        lambda i, it: self.root.after(0, self._quit)),
         )
         self.tray = pystray.Icon('Aura UI', self._make_icon(), 'Aura UI', menu)
@@ -1934,6 +1929,11 @@ class AmbientApp:
 
     def _quit(self):
         self._running = False
+        if self._search_hotkey:
+            try: self._search_hotkey.stop()
+            except Exception: pass
+        if self.search_server:
+            self.search_server.stop()
         self._close_log()
         self._restore_display()
         if self._dnd_active:
@@ -1960,6 +1960,12 @@ class AmbientApp:
 
 def main():
     """Entry point for `python run.py` and for the installed `aura-ui` command."""
+    # A frozen AuraUI.exe relaunches itself with --search-window URL to host the
+    # optional pywebview search window in its own process (see backend/search/window.py).
+    if len(sys.argv) == 3 and sys.argv[1] == '--search-window':
+        from backend.search.window import run_pywebview
+        run_pywebview(sys.argv[2])
+        return
     AmbientApp().run()
 
 

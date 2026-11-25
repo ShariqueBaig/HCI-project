@@ -10,8 +10,12 @@ Guarantees
 2. Local only        -- there is no network code here; records never leave the machine.
 3. Pseudonymous      -- participant codes are stored only as salted SHA-256 digests.
 4. Data minimisation -- only whitelisted numeric typing/mouse aggregates, scores and
-                        timings are stored. Characters, key codes, window titles, app
-                        names and journal text are never recorded.
+                        timings are stored. Characters, key codes, window titles and app
+                        names are never recorded. Free text is limited to what consent v4
+                        names: the journal note/reflection and, for Aura Search, the
+                        queries typed into it (or only a salted hash of them, if the
+                        participant chose that), optional task answers, and the facts
+                        and sources shown. Each search record is whitelisted field by field.
 5. Tamper-evident    -- each record carries a SHA-256 hash chained to the previous one,
                         so any edit or deletion of a line is detectable.
 6. Retention         -- purge_expired(days) enforces a data-retention window.
@@ -36,11 +40,12 @@ import json
 import os
 import secrets
 import sys
+import threading
 import time
 
 APP_NAME         = 'Aura UI'
 PROTOCOL_VERSION = '2.0'
-CONSENT_VERSION  = '3.0'   # v3 adds the optional journal note + reflection to the record
+CONSENT_VERSION  = '4.0'   # v3: journal note + reflection; v4: Aura Search queries + surveys
 
 # The only telemetry fields that may be stored. Anything not listed here is
 # dropped before it can reach disk -- this is the data-minimisation contract.
@@ -61,7 +66,12 @@ CONSENT_TEXT = (
     'code, so I should not write anything I would not want in the research '
     'dataset; (4) data is stored under a salted pseudonym and is not shared with '
     'other participants; (5) I can withdraw at any time, which deletes my '
-    'sessions locally and from the database.'
+    'sessions locally and from the database; (6) if I use Aura Search during a '
+    'recorded session, the searches I type (or, if I choose, only a scrambled '
+    'code for each search), the sources and layouts shown, whether I accept '
+    'Aura\u2019s offers to change the layout, my answers to post-task questionnaires '
+    'and any task answer I choose to type are stored with the session; only '
+    'counts and scores from these are uploaded, never the searches themselves.'
 )
 
 
@@ -104,8 +114,9 @@ def consent_status():
     return rec
 
 
-def give_consent(participant_code, researcher='', note=''):
-    """Record explicit consent. participant_code is stored only as a digest."""
+def give_consent(participant_code, researcher='', note='', store_queries=True):
+    """Record explicit consent. participant_code is stored only as a digest.
+    store_queries=False keeps only a salted hash of each Aura Search query."""
     if not (participant_code or '').strip():
         raise ValueError('a participant code is required')
     _ensure_dir(DATA_ROOT)
@@ -119,6 +130,7 @@ def give_consent(participant_code, researcher='', note=''):
         'note':           note.strip(),
         'revoked':        False,
         'protocol':       PROTOCOL_VERSION,
+        'store_queries':  bool(store_queries),
     }
     _write_json(CONSENT_FILE, rec)
     _restrict(CONSENT_FILE)
@@ -260,6 +272,14 @@ class ResearchCollector:
         self._self_report = {}
         self._journal    = {}     # optional note + reflection, attached on save
         self._n_ticks    = 0
+        # The Aura Search server writes from its own thread; one lock keeps the
+        # hash chain strictly sequential.
+        self._lock       = threading.RLock()
+        self._store_queries = bool(st.get('store_queries', True))
+        self._search     = {'searches': 0, 'reformulations': 0, 'offers': 0, 'accepted': 0,
+                            'dismissed': 0, 'undone': 0, 'expired': 0, 'counterfactual': 0,
+                            'standard_view': 0, 'backtracks': 0, 'tasks': 0, 'surveys': 0,
+                            'sus': []}
         folder = _ensure_dir(os.path.join(SESSIONS_DIR, self.pseudonym))
         self.session_path = os.path.join(folder, self.session_id + '.jsonl')
         self._fh = open(self.session_path, 'a', encoding='utf-8', newline='\n')
@@ -282,10 +302,109 @@ class ResearchCollector:
     # -- writing ---------------------------------------------------------
 
     def _append(self, rec):
-        rec['h'] = _hash(self._prev, rec)
-        self._prev = rec['h']
-        self._fh.write(json.dumps(rec, sort_keys=True, ensure_ascii=False) + '\n')
-        self._fh.flush()
+        with self._lock:
+            if self._closed:
+                return False
+            rec['h'] = _hash(self._prev, rec)
+            self._prev = rec['h']
+            self._fh.write(json.dumps(rec, sort_keys=True, ensure_ascii=False) + '\n')
+            self._fh.flush()
+            return True
+
+    def _t(self):
+        return round(time.time() - self.started, 3)
+
+    @property
+    def closed(self):
+        return self._closed
+
+    # -- Aura Search (consent v4) ---------------------------------------
+
+    def query_field(self, query):
+        """The query itself, or a salted hash if the participant opted out of text."""
+        q = (query or '').strip()[:300]
+        if self._store_queries:
+            return {'query': q}
+        digest = hashlib.sha256((_salt() + '|q|' + q.lower()).encode('utf-8')).hexdigest()[:16]
+        return {'query_hash': digest, 'query_words': len(q.split())}
+
+    def log_search(self, search):
+        """One search: what was asked, what state it was in, what it was shown.
+        Field-by-field whitelist; facts are stored as ids, not text."""
+        g = search.get
+        feat = {k: round(float(v), 4) for k, v in (g('query_typing') or {}).items()
+                if k in ALLOWED_FEATURES and isinstance(v, (int, float))}
+        rec = {
+            'type': 'search', 't': self._t(),
+            'search_id': str(g('search_id', ''))[:24], 'task_id': g('task_id'),
+            'condition': g('condition'), 'adaptive': bool(g('adaptive')),
+            'policy': g('policy'), 'state': g('state'), 'confidence': g('confidence'),
+            'stress': g('stress'), 'camera': bool(g('camera')),
+            'camera_valence': g('camera_valence'), 'camera_arousal': g('camera_arousal'),
+            'reformulation': bool(g('reformulation')),
+            'query_uncertain': bool(g('query_uncertain')), 'query_typing': feat,
+            'provider': g('provider'), 'source_domains': list(g('source_domains') or [])[:10],
+            'n_claims': g('n_claims'), 'claims_shown': list(g('claims_shown') or [])[:20],
+            'widgets': list(g('widgets') or [])[:12], 'topology': g('topology'),
+            'layout_source': g('layout_source'), 'model_facts': g('model_facts'),
+            'model_layout': g('model_layout'), 'ungrounded_removed': g('ungrounded_removed'),
+            'evaluative_cells': g('evaluative_cells'),
+            'timings_ms': {k: v for k, v in (g('timings_ms') or {}).items()
+                           if k in ('retrieval', 'stageA', 'stageB', 'total')},
+        }
+        rec.update(self.query_field(g('query')))
+        if self._append(rec):
+            self._search['searches'] += 1
+            self._search['reformulations'] += int(rec['reformulation'])
+
+    SEARCH_EVENTS = ('proposal', 'accept', 'dismiss', 'undo', 'expired', 'counterfactual',
+                     'superseded', 'standard_view', 'adapted_view', 'source_open', 'backtrack',
+                     'followup', 'clarifier', 'facet', 'rage_click', 'hesitation',
+                     'camera_on', 'camera_off')
+
+    def log_search_event(self, kind, search_id=None, target=None, origin=None, reason=None,
+                         latency_s=None):
+        if kind not in self.SEARCH_EVENTS:
+            return
+        rec = {'type': 'search_event', 't': self._t(), 'kind': kind,
+               'search_id': (str(search_id)[:24] if search_id else None),
+               'target': target, 'from': origin,
+               'reason': (reason or '')[:200] or None, 'latency_s': latency_s}
+        if self._append(rec):
+            key = {'proposal': 'offers', 'accept': 'accepted', 'dismiss': 'dismissed',
+                   'undo': 'undone', 'expired': 'expired', 'counterfactual': 'counterfactual',
+                   'standard_view': 'standard_view', 'backtrack': 'backtracks'}.get(kind)
+            if key:
+                self._search[key] += 1
+
+    def log_task(self, event, task_id, task='', duration_s=None, searches=None):
+        if event not in ('start', 'end', 'abandon'):
+            return
+        rec = {'type': 'task', 't': self._t(), 'event': event, 'task_id': str(task_id)[:60],
+               'task': (task or '')[:200], 'duration_s': duration_s, 'searches': searches}
+        if self._append(rec) and event == 'start':
+            self._search['tasks'] += 1
+
+    def log_survey(self, kind, task_id=None, answers=None, scores=None, answer_text=''):
+        """Post-task (SAM, NASA-TLX, Likert, success) or SUS questionnaire."""
+        if kind not in ('task', 'sus'):
+            return
+        clean = {}
+        for k, v in (answers or {}).items():
+            if isinstance(v, bool):
+                clean[str(k)[:40]] = v
+            elif isinstance(v, (int, float)):
+                clean[str(k)[:40]] = round(float(v), 2)
+            elif isinstance(v, list) and all(isinstance(x, (int, float)) for x in v):
+                clean[str(k)[:40]] = [round(float(x), 2) for x in v[:20]]
+        rec = {'type': 'survey', 't': self._t(), 'kind': kind,
+               'task_id': (str(task_id)[:60] if task_id else None), 'answers': clean,
+               'scores': {k: v for k, v in (scores or {}).items() if isinstance(v, (int, float))},
+               'answer_text': (answer_text or '').strip()[:500] or None}
+        if self._append(rec):
+            self._search['surveys'] += 1
+            if kind == 'sus' and 'sus' in rec['scores']:
+                self._search['sus'].append(rec['scores']['sus'])
 
     def log_tick(self, t_s, score, tier, features, brightness=None,
                  breathing=0, simulated=0, label=None):
@@ -354,18 +473,24 @@ class ResearchCollector:
             'journal':     self._journal,
             'demo':        bool(s.get('demo', False)),
         }
+        if self._search['searches'] or self._search['surveys'] or self._search['tasks']:
+            agg = {k: v for k, v in self._search.items() if k != 'sus'}
+            sus = self._search['sus']
+            agg['sus_mean'] = round(sum(sus) / len(sus), 1) if sus else None
+            rec['search'] = agg
         self._append(rec)
         self.close()
         return rec
 
     def close(self):
-        if self._closed:
-            return
-        self._closed = True
-        try:
-            self._fh.close()
-        except Exception:
-            pass
+        with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            try:
+                self._fh.close()
+            except Exception:
+                pass
 
 
 # ------------------------------------------------------------------- export
@@ -386,6 +511,24 @@ def _read_session(path):
             elif t == 'summary':
                 summary = rec
     return header, ticks, summary
+
+
+def _read_session_full(path):
+    """All records of a session grouped by type (search-era records included)."""
+    out = {'header': {}, 'summary': {}, 'tick': [], 'search': [], 'search_event': [],
+           'task': [], 'survey': []}
+    with open(path, encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rec = json.loads(line)
+            t = rec.get('type')
+            if t in ('header', 'summary'):
+                out[t] = rec
+            elif t in out:
+                out[t].append(rec)
+    return out
 
 
 def sessions_for(pseudonym):
@@ -469,8 +612,78 @@ def export_dataset(dest_dir, dedupe=True):
                 'journal_reflection': (summary.get('journal') or {}).get('reflection'),
             })
             n_s += 1
-    return {'ticks': n_t, 'sessions': n_s,
-            'ticks_csv': ticks_path, 'sessions_csv': sess_path}
+    res = {'ticks': n_t, 'sessions': n_s,
+           'ticks_csv': ticks_path, 'sessions_csv': sess_path}
+    res.update(_export_search(dest_dir))
+    return res
+
+
+def _export_search(dest_dir):
+    """Aura Search CSVs: one row per search, per search event, per task event and
+    per questionnaire. Joined to sessions.csv by session_id."""
+    search_cols = ['session_id', 'pseudonym', 'condition', 't', 'search_id', 'task_id', 'query',
+                   'query_hash', 'query_words', 'adaptive', 'policy', 'state', 'confidence', 'stress',
+                   'camera', 'camera_valence', 'camera_arousal',
+                   'reformulation', 'query_uncertain', 'provider', 'n_sources', 'n_claims',
+                   'n_claims_shown', 'widgets', 'topology', 'layout_source', 'model_facts',
+                   'model_layout', 'ungrounded_removed', 'evaluative_cells', 'ms_retrieval',
+                   'ms_stageA', 'ms_stageB', 'ms_total', 'typing_kps', 'typing_error_rate']
+    event_cols = ['session_id', 'pseudonym', 'condition', 't', 'kind', 'search_id', 'target',
+                  'from', 'latency_s', 'reason']
+    task_cols = ['session_id', 'pseudonym', 'condition', 't', 'event', 'task_id', 'task',
+                 'duration_s', 'searches']
+    sam_tlx = ['sam_valence', 'sam_arousal', 'sam_dominance', 'tlx_mental', 'tlx_frustration',
+               'tlx_effort', 'personalization', 'control', 'trust', 'success']
+    survey_cols = (['session_id', 'pseudonym', 'condition', 't', 'kind', 'task_id', 'completed']
+                   + sam_tlx + ['sus_items', 'sus', 'efficiency', 'effectiveness', 'answer_text'])
+    paths = {k: os.path.join(dest_dir, k + '.csv')
+             for k in ('searches', 'search_events', 'tasks', 'surveys')}
+    counts = dict.fromkeys(paths, 0)
+    with open(paths['searches'], 'w', encoding='utf-8', newline='') as f1, \
+         open(paths['search_events'], 'w', encoding='utf-8', newline='') as f2, \
+         open(paths['tasks'], 'w', encoding='utf-8', newline='') as f3, \
+         open(paths['surveys'], 'w', encoding='utf-8', newline='') as f4:
+        w = {'searches': csv.DictWriter(f1, fieldnames=search_cols, extrasaction='ignore'),
+             'search_events': csv.DictWriter(f2, fieldnames=event_cols, extrasaction='ignore'),
+             'tasks': csv.DictWriter(f3, fieldnames=task_cols, extrasaction='ignore'),
+             'surveys': csv.DictWriter(f4, fieldnames=survey_cols, extrasaction='ignore')}
+        for x in w.values():
+            x.writeheader()
+        for path in list_sessions():
+            d = _read_session_full(path)
+            h = d['header']
+            base = {'session_id': h.get('session_id') or os.path.basename(path)[:-6],
+                    'pseudonym': h.get('pseudonym'), 'condition': h.get('condition')}
+            for r in d['search']:
+                tm, qt = r.get('timings_ms') or {}, r.get('query_typing') or {}
+                row = dict(base)
+                row.update({k: r.get(k) for k in search_cols if k in r})
+                row.update(n_sources=len(r.get('source_domains') or []),
+                           n_claims_shown=len(r.get('claims_shown') or []),
+                           widgets='|'.join(r.get('widgets') or []),
+                           ms_retrieval=tm.get('retrieval'), ms_stageA=tm.get('stageA'),
+                           ms_stageB=tm.get('stageB'), ms_total=tm.get('total'),
+                           typing_kps=qt.get('keys_per_second'),
+                           typing_error_rate=qt.get('error_rate'))
+                w['searches'].writerow(row)
+                counts['searches'] += 1
+            for r in d['search_event']:
+                w['search_events'].writerow({**r, **base})
+                counts['search_events'] += 1
+            for r in d['task']:
+                w['tasks'].writerow({**r, **base})
+                counts['tasks'] += 1
+            for r in d['survey']:
+                a, sc = r.get('answers') or {}, r.get('scores') or {}
+                row = dict(base, t=r.get('t'), kind=r.get('kind'), task_id=r.get('task_id'),
+                           completed=a.get('completed'), answer_text=r.get('answer_text'),
+                           sus_items='|'.join(str(int(x)) for x in a.get('sus_items') or []),
+                           sus=sc.get('sus'), efficiency=sc.get('efficiency'),
+                           effectiveness=sc.get('effectiveness'))
+                row.update({k: a.get(k) for k in sam_tlx})
+                w['surveys'].writerow(row)
+                counts['surveys'] += 1
+    return {k + '_rows': v for k, v in counts.items()} | {k + '_csv': v for k, v in paths.items()}
 
 
 def audit():

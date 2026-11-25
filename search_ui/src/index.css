@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/* Aura UI palette (run.py) -- the search window looks like part of Aura. */
+:root {
+  --aura-bg: #0b0a10;
+  --aura-surface: #15131d;
+  --aura-border: #2b263b;
+  --aura-text: #e8e6ed;
+  --aura-muted: #9d98ab;
+  --aura-faint: #3a3550;
+  --aura-calm: #7fae9d;
+  --aura-mild: #d9a054;
+  --aura-elev: #c97070;
+  /* Adaptive tokens, driven by the state policy in later phases */
+  --aura-target-scale: 1;
+  --aura-type-scale: 1;
+  --aura-line-height: 1.55;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  background: var(--aura-bg);
+  color: var(--aura-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+input::placeholder {
+  color: var(--aura-muted);
+}
+
+/* Fitts's-law hit-target scaling (ported from the webcam app) */
+.aura-target {
+  min-height: calc(36px * var(--aura-target-scale));
+  padding-inline: calc(12px * var(--aura-target-scale));
+}
+
+.aura-readable {
+  font-size: calc(1rem * var(--aura-type-scale));
+  line-height: var(--aura-line-height);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
