@@ -103,8 +103,31 @@ export function KeyFactsList({ claim_ids, title }: { claim_ids: string[]; title?
   );
 }
 
-export function GuidedSteps({ steps, title }: { steps: { text: string; claim_ids: string[] }[]; title?: string }) {
+export function GuidedSteps({ steps, title, kind }: {
+  steps: { text: string; claim_ids: string[] }[];
+  title?: string;
+  kind?: 'steps' | 'facts';
+}) {
   const [done, setDone] = useState<Set<number>>(new Set());
+  if (kind === 'facts') {
+    // not a how-to query: these are the key facts, so nothing to tick off
+    return (
+      <section aria-label={title || 'Key points'}>
+        <Heading>{title || 'Key points'}</Heading>
+        <ol className="aura-readable space-y-2">
+          {steps.map((s, i) => (
+            <li key={i} className="flex items-start gap-3 rounded-lg border px-3 py-2" style={card}>
+              <span className="tabular-nums" style={muted}>{i + 1}.</span>
+              <span>
+                {s.text}
+                <Cites claimIds={s.claim_ids} />
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    );
+  }
   const toggle = (i: number) =>
     setDone((d) => {
       const n = new Set(d);

@@ -197,11 +197,37 @@ def validate_spec(raw, stage_a, policy, sources, query='', trail=None):
                     elif ids:
                         items.append({'text': claims[ids[0]]['text'], 'claim_ids': ids[:1]})
             cap = 3 if policy['name'] == 'overwhelmed' else 8
+            asked = len(items)
+            # the same step twice (often one claim restated) is never useful
+            uniq, seen_text, seen_claims = [], set(), set()
+            for it in items:
+                key = re.sub(r'[^a-z0-9]+', ' ', it['text'].lower()).strip()
+                if not key or key in seen_text or (it['claim_ids'] and set(it['claim_ids']) <= seen_claims):
+                    continue
+                seen_text.add(key)
+                seen_claims.update(it['claim_ids'])
+                uniq.append(it)
+            if len(uniq) < len(items):
+                fix('GuidedSteps: removed {} duplicate step(s)'.format(len(items) - len(uniq)))
+            items = uniq
+            facts_only = not steps      # not a how-to query: these are facts, not actions
+            if facts_only:
+                want = min(cap, max(asked, 2))
+                for c in sorted(claims.values(), key=lambda c: -c.get('importance', 1)):
+                    if len(items) >= want:
+                        break
+                    key = re.sub(r'[^a-z0-9]+', ' ', c['text'].lower()).strip()
+                    if c['id'] not in seen_claims and key not in seen_text:
+                        items.append({'text': c['text'], 'claim_ids': [c['id']]})
+                        seen_claims.add(c['id'])
+                        seen_text.add(key)
             if len(items) > cap:
                 fix('GuidedSteps capped at {}'.format(cap))
                 items = items[:cap]
-            if items:
-                props = {'title': _str(p.get('title'), 60), 'steps': items}
+            if facts_only and items:
+                props = {'title': 'What matters most', 'steps': items, 'kind': 'facts'}
+            elif items:
+                props = {'title': _str(p.get('title'), 60), 'steps': items, 'kind': 'steps'}
         elif t == 'ComparisonTable':
             cols = _strs(p.get('columns'), policy['max_primary_options'], 60)
             rows = []

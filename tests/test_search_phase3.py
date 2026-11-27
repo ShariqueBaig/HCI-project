@@ -101,6 +101,29 @@ class ValidatorTests(unittest.TestCase):
         steps = spec['components'][0]['props']['steps']
         self.assertEqual([s['text'] for s in steps], HOWTO['steps'][:3])
 
+    def test_repeated_fact_steps_are_deduped_and_topped_up(self):
+        # 'how does caffeine affect sleep': no Stage A steps, the LLM points three
+        # ungrounded "steps" at one claim -> was shown three times as "What to do"
+        bad = {'text': 'Stop drinking quantum espresso before bedtime.', 'claim_ids': ['c4']}
+        spec, rep = validate_spec({'components': [{'type': 'GuidedSteps',
+                                                   'props': {'title': 'What to do', 'steps': [bad, bad, bad]}}]},
+                                  STAGE_A, get_policy('overwhelmed'), SOURCES)
+        p = spec['components'][0]['props']
+        texts = [s['text'] for s in p['steps']]
+        self.assertEqual(len(texts), 3)
+        self.assertEqual(len(set(texts)), 3)
+        self.assertEqual(texts[0], STAGE_A['claims'][3]['text'])
+        self.assertEqual((p['title'], p['kind']), ('What matters most', 'facts'))
+        self.assertTrue(any('duplicate' in f for f in rep['fixes']))
+
+    def test_howto_steps_keep_title_and_drop_repeats(self):
+        spec, _ = validate_spec({'components': [{'type': 'GuidedSteps',
+                                                 'props': {'title': 'Start here', 'steps': [0, 0, 1]}}]},
+                                HOWTO, get_policy('focused'), SOURCES)
+        p = spec['components'][0]['props']
+        self.assertEqual([s['text'] for s in p['steps']], HOWTO['steps'][:2])
+        self.assertEqual((p['title'], p['kind']), ('Start here', 'steps'))
+
     def test_facets_must_come_from_stage_a(self):
         spec, _ = v({'components': [{'type': 'FacetChips', 'props': {'facets': ['speed', 'RGB lighting', 'SSD']}}]})
         self.assertEqual(spec['components'][0]['props']['facets'], ['speed', 'SSD'])
