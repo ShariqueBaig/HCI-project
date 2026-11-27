@@ -105,6 +105,18 @@ class ConsentTests(unittest.TestCase):
             sv = next(r for r in recs if r['type'] == 'survey')
             self.assertNotIn('note', sv['answers'])                # strings are not accepted as answers
 
+    def test_mood_simulation_is_logged(self):
+        with TempResearchDir():
+            research.give_consent('P5')
+            c = research.ResearchCollector('P5')
+            c.log_search_event('mood_sim_start', None, 'fatigued')
+            c.log_search_event('mood_sim_stop')
+            c.end({})
+            with open(c.session_path, encoding='utf-8') as f:
+                ev = [json.loads(l) for l in f]
+            ev = [(r['kind'], r['target']) for r in ev if r['type'] == 'search_event']
+            self.assertEqual(ev, [('mood_sim_start', 'fatigued'), ('mood_sim_stop', None)])
+
     def test_concurrent_writers_keep_chain_valid(self):
         with TempResearchDir():
             research.give_consent('P4')

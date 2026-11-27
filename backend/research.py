@@ -377,7 +377,8 @@ class ResearchCollector:
     SEARCH_EVENTS = ('proposal', 'accept', 'dismiss', 'undo', 'expired', 'counterfactual',
                      'superseded', 'standard_view', 'adapted_view', 'source_open', 'backtrack',
                      'followup', 'clarifier', 'facet', 'rage_click', 'hesitation',
-                     'camera_on', 'camera_off')
+                     'camera_on', 'camera_off',
+                     'mood_sim_start', 'mood_sim_stop')     # so analysis can drop simulated spans
 
     def log_search_event(self, kind, search_id=None, target=None, origin=None, reason=None,
                          latency_s=None):
