@@ -72,7 +72,7 @@
 \thispagestyle{fancy}
 
 \begin{abstract}
-\textbf{Aura UI} is a privacy-preserving desktop ambient computing assistant designed for knowledge workers and university students. Instead of asking users to self-report stress or interrupting deep work with intrusive modal popups, Aura UI infers cognitive strain continuously at 3\,Hz from peripheral keyboard and mouse micro-telemetry (without ever recording typed characters, key codes, or window titles). When cognitive load rises, Aura UI responds gently through graduated calm-technology interventions: subtle screen brightness dimming, warm color-temperature shifts, smooth Spotify volume ducking, Windows Focus Assist notification gating with calm recovery digests, interactive physiological sighing breathwork, and empathetic AI check-ins. This guide documents every panel on screen, shows how to install, build, and run the software, provides a 2-minute evaluator walkthrough, and details the 35-minute within-subjects ($A/B$) pilot protocol alongside telemetry validation and export tooling.
+\textbf{Aura UI} is a privacy-preserving desktop ambient computing assistant designed for knowledge workers and university students. Instead of asking users to self-report stress or interrupting deep work with intrusive modal popups, Aura UI infers cognitive strain continuously at 3\,Hz from peripheral keyboard and mouse micro-telemetry (without ever recording typed characters, key codes, or window titles). When cognitive load rises, Aura UI responds gently through graduated calm-technology interventions: subtle screen brightness dimming, warm color-temperature shifts, smooth Spotify volume ducking, Windows Focus Assist notification gating with calm recovery digests, interactive physiological sighing breathwork, and empathetic AI check-ins. Its built-in \textbf{Aura Search} adapts both answers and their layout to the user's state, and an \textbf{Explain} panel shows step by step how that state is inferred, including from the optional camera. This guide documents every panel on screen, shows how to install, build, and run the software, provides a 2-minute evaluator walkthrough, and details the 35-minute within-subjects ($A/B$) pilot protocol alongside telemetry validation and export tooling.
 \end{abstract}
 
 \tableofcontents
@@ -166,7 +166,8 @@ When launched (\texttt{python run.py} or \texttt{AuraUI.exe}), the widget displa
 \textbf{Dial \& Stats} & Score dial \& 6 cells & Displays 0--100 smoothed stress score, live \texttt{$\bullet$ REC MM:SS} / \texttt{SIM} badge, and 5\,s rolling \texttt{keys/s}, \texttt{error rate}, \texttt{dwell ms}, \texttt{flight ms}, \texttt{mouse px}, and \texttt{clicks}. \\
 \textbf{Display} & \uictrl{Auto-adjust brightness} & Opt-in toggle for smooth screen dimming \& Kelvin warming. Unchecking (or quitting) restores original brightness and 6500\,K gamma automatically. \\
 \textbf{Research} & \uictrl{Privacy} \& \uictrl{Record session} & Opens informed consent dialog; ticking \uictrl{Record session} logs telemetry to \texttt{data/sessions/} (redirects to Privacy if consent is not on file). Unchecking auto-opens the Journal to finalize ratings. \\
-\textbf{Testing} & \uictrl{Simulate Stress} \& \uictrl{Demo} & \uictrl{Simulate Stress} injects 10\,s of Elevated stress (82/100) and resets intervention cooldowns; \uictrl{Demo} opens the 4-stage presentation controller and manual tier overrides. \\
+\textbf{Testing} & \uictrl{Simulate Stress $\blacktriangledown$} \& \uictrl{Demo} & \uictrl{Simulate Stress} opens a menu: \textit{Stress spike} injects 10\,s of Elevated stress (82/100) and resets intervention cooldowns; \textit{Mood: Focused/Overwhelmed/Fatigued/Energized/Disoriented} drives Aura Search's state model for 45\,s (Section~\ref{sec:search}); \textit{Stop mood simulation} ends it. \uictrl{Demo} opens the 4-stage presentation controller and manual tier overrides. \\
+\textbf{Search} & \uictrl{Search (Ctrl+Shift+Space)} & Opens the Aura Search window (Section~\ref{sec:search}). \\
 \textbf{Tuning} & \uictrl{Settings} \& \uictrl{Calibrate} & Adjusts weights, smoothing, decay speed, and per-tier brightness/Kelvin/volume targets; \uictrl{Calibrate} launches the 30-second resting baseline modal (\uictrl{$\checkmark$ Cal} badge). \\
 \textbf{Study Arm} & \uictrl{Mode: Active (B) / Control (A)} & One-click experimental condition switch. \textbf{Control (A)} logs telemetry silently with all visual, DND, audio, breathing, and chat interventions suppressed. \\
 \textbf{Focus Mode} & \uictrl{Focus mode}, \uictrl{Test notification} & Suppresses alerts when \textit{Elevated} (unless Control A); shows amber summary digest toast once Calm returns; \uictrl{Journal} opens reflection \& past sessions. \\
@@ -178,6 +179,48 @@ When launched (\texttt{python run.py} or \texttt{AuraUI.exe}), the widget displa
 \caption{Complete reference of controls across both columns of Aura UI.}
 \label{tab:controls}
 \end{table}
+
+\clearpage   % flush the Section 2 figures and control table before Search
+% ============================================================================
+\section{Aura Search \& Explainable AI}
+\label{sec:search}
+% ============================================================================
+
+\textbf{Aura Search} is a search window built into Aura (\uictrl{Search} button, tray menu, or \texttt{Ctrl+Shift+Space}). Both the answer \emph{and its layout} adapt to the query plus your live state. A first pass turns sources into cited facts; a second pass lays the same facts out for one of five states: \textit{focused}, \textit{overwhelmed}, \textit{fatigued}, \textit{energized}, \textit{disoriented}. The state comes from Aura's desktop stress, how you type the query (timing only), quick repeated clicks, long pauses, reworded searches and, optionally, the camera. A new state must hold for 3\,s before the layout changes. For how-to questions the layout can include a tick-off steps list; other questions get a plain \textit{What matters most} list of distinct key facts.
+
+\subsection{The Explain Panel}
+Click \uictrl{Explain} in the search window's header to open the explainable-AI panel (it is hidden by default; click again or $\times$ to close). It shows, live:
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+    \item \textbf{Prediction:} the state the model predicts now and its confidence, and the state the layout follows (with a countdown while a change is pending).
+    \item \textbf{Step 0 -- Your face (camera on only):} the live preview with the detected face box and points; the 8 emotion scores; a mood map placing each emotion at a fixed mood/energy point with a dot for your current mix; cognitive load as a sum, term by term ($0.45 \times$ tense emotions $+ 0.25 \times$ looking away $+ 0.15 \times$ changing expression $+ 0.15 \times$ task pressure; 72\% or more counts toward \textit{overwhelmed}); the state the camera alone would pick; and whether the rules are using the camera right now.
+    \item \textbf{Step 1 -- Fused stress:} each stress source with its weight (Aura desktop $\times 1.0$, search-box typing $\times 0.6$) and share of the total.
+    \item \textbf{Step 2 -- The rules:} the five states in priority order (first match wins), each with a bar for how close it is to firing and a status (\textit{chosen}, \textit{matched, lower priority}, \textit{not met}). Click a state to see each condition with its live value and threshold, e.g.\ \texttt{Fused stress 42 >= 60} \texttt{\textcolor{AuraRose}{x}}.
+\end{itemize}
+
+\subsection{Simulating a Mood}
+The panel's \textbf{Simulate a mood} buttons (or the mood items under Aura's \uictrl{Simulate Stress $\blacktriangledown$} menu) feed the model that mood's typical signals for 45\,s, so the real rules choose it rather than a label being forced:
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Mood} & \textbf{Simulated signals} & \textbf{Rule that fires} \\
+\midrule
+Overwhelmed & Stress 82/100, Elevated tier & Fused stress $\ge 60$ \\
+Disoriented & Stress 40; 2 reworded searches, 2 long pauses & Reformulations $\ge 2$ \\
+Fatigued & Stress 25; slow, heavy typing (1.1 keys/s, 210\,ms per key) & Typing $<1.6$ keys/s and key hold $>0.14$\,s, stress $<45$ \\
+Energized & Stress 15; fast, accurate typing (5.2 keys/s, 2\% typos) & Typing $\ge 4$ keys/s, typos $<8\%$, stress $<30$ \\
+Focused & Stress 35, no friction & Default when nothing above fires \\
+\bottomrule
+\end{tabularx}
+\caption{Mood simulation profiles and the fusion rule each one triggers.}
+\label{tab:moodsim}
+\end{table}
+
+Results already on screen re-lay out for the simulated mood. Choosing \textit{Overwhelmed} from Aura's menu also fires the stress spike, so the ambient interventions react too.
+
+\notebox{Privacy \& study note}{No video is stored or sent. A preview picture is made only while the Explain panel is open (it stops within 3\,s of closing); only the latest one is kept, in memory, and shown only in your own search window. Keep the panel closed and do not simulate moods during recorded study sessions: simulation replaces the participant's real signals and is logged as \texttt{mood\_sim\_start}/\texttt{mood\_sim\_stop} events.}
 
 % ============================================================================
 \section{Privacy, Calibration \& Journal Workflows}
@@ -248,7 +291,7 @@ This produces a single \texttt{dist/AuraUI.exe} binary. \texttt{aura\_defaults.j
 \section{Quick 2-Minute Evaluator Walkthrough}
 % ============================================================================
 
-Anyone testing Aura UI for the first time can observe every feature working end-to-end in under two minutes:
+Anyone testing Aura UI for the first time can observe every feature working end-to-end in about two minutes:
 \begin{enumerate}[leftmargin=1.5em, itemsep=3pt]
     \item \textbf{Live Sensing Baseline (20\,s):} Launch \texttt{python run.py} (ensure \uictrl{Mode: Active (B)} is shown) and type normally in any editor. Watch \texttt{keys/s}, \texttt{dwell ms}, \texttt{flight ms}, and \texttt{mouse px} update every 333\,ms while the score stays in \textcolor{AuraTeal}{Calm} (0--29). Tick \uictrl{Auto-adjust brightness} to let display modulation run.
     \item \textbf{Test Focus Mode in Calm (10\,s):} Click \uictrl{Test notification} on the right panel. A green \textit{Delivered} toast appears immediately in the bottom-right corner.
@@ -259,6 +302,7 @@ Anyone testing Aura UI for the first time can observe every feature working end-
         \item After 3 seconds in Elevated, the physiological sighing popup (\textbf{Breathe}) opens and \textbf{Aura Chat} initiates a proactive empathetic check-in. Reply in the chat box, or click \uictrl{I'm Good} once ready.
     \end{itemize}
     \item \textbf{Observe Recovery Digest (5\,s):} Wait $\approx 3$ seconds after simulation stops; stress decays smoothly back to \textcolor{AuraTeal}{Calm}, screen brightness/warmth restores, and Focus mode delivers an amber summary toast listing all held apps.
+    \item \textbf{See How the Model Reads You (20\,s):} Press \texttt{Ctrl+Shift+Space}, run a suggested search, click \uictrl{Explain}, then click \uictrl{Fatigued} under \textit{Simulate a mood}. Within about 3\,s the prediction and layout switch to \textit{Fatigued}, the \textit{Slow, heavy typing} rule shows every condition met, and the results re-lay out.
     \item \textbf{Try Calibration \& Journal (30\,s):} Click \uictrl{Privacy} $\rightarrow$ enter code \texttt{TEST} $\rightarrow$ \uictrl{Save consent}; click \uictrl{Calibrate} and type the passage; tick and uncheck \uictrl{Record session} to inspect the finalized \textbf{Journal} modal.
 \end{enumerate}
 

@@ -265,6 +265,8 @@ Every route requires the per-launch token.
 | `POST /api/telemetry/typing` | Windowed query-box typing features at about 1 Hz. |
 | `POST /api/search/event` | Search interactions. |
 | `POST /api/search/survey` | Post-task SUS, SAM, NASA-TLX and the 3 Likert items. |
+| `POST /api/simulate` | *(Implemented.)* Body `{state: focused…disoriented \| null, duration_s: 5–300, default 45}`. Starts or stops a mood simulation (§5b). |
+| `GET /api/camera/explain` | *(Implemented.)* The camera's preview frame and reasoning for the Explain panel (§5b). Polling it is what keeps the preview being made. |
 
 ### Research logging: extend Aura's own `backend/research.py`
 
@@ -341,6 +343,18 @@ No second database is added.
 - Aura's existing Record, Privacy and condition flow stays the study controller.
 - A small "Study tasks" picker in the search window loads a task preset (prompt, fixture set, time limit) and opens the survey on finish.
 
+### 5b. Explainable AI and mood simulation (implemented, Nov 2026)
+
+The "Why this layout?" idea grew into a full **Explain** panel. It is hidden until the user clicks **Explain** in the search window's header.
+
+- **Where the explanation comes from.** `backend/search/xai.py` rebuilds the fusion rule list from the exact inputs `fuse()` used and attaches it to every fused vector as `xai`, so the explanation cannot drift from the decision. For each state (in priority order: overwhelmed, disoriented, fatigued, energized, focused; first match wins) it lists the clauses ("any of"), the conditions in each ("all of") with live value, operator, threshold and met/not met, and a 0–1 closeness: a clause is as close as its weakest condition, a state as close as its best clause. It also reports the stress fusion: each source, weight (Aura ×1.0, query typing ×0.6) and share.
+- **Panel layout.** Prediction (state, confidence, the state the layout follows, the 3 s dwell countdown) → Step 0 camera → Step 1 fused stress → Step 2 rules, each state expandable to its conditions.
+- **Step 0, camera.** `CameraSensor.explain()` (`backend/vision/sensor.py`) returns the annotated preview frame (face box, 5 landmarks, top emotion, attention), the smoothed 8-emotion scores, valence/arousal with the circumplex anchors, attention, volatility, the cognitive-load sum term by term (0.45 × anger+fear+disgust, 0.25 × (1 − attention), 0.15 × volatility, 0.15 × task pressure), and the camera engine's own state guess. The endpoint also says whether fusion is using the camera (face present, reading ≤ 2 s old, no simulation running).
+- **Privacy of the preview.** `VisionEngine` encodes a JPEG only while `preview` is on, and the sensor turns it on only while the panel has polled within the last 3 s. Only the latest frame is held, in memory; it is served only on 127.0.0.1 with the launch token, and never written to disk or the research log.
+- **Mood simulation.** `StateHub.simulate(state, duration_s)` swaps the fusion *inputs* for a mood profile (`SIM_PROFILES` in `backend/search/hub.py`): overwhelmed = stress 82, tier 2; focused = stress 35; fatigued = stress 25 + slow, heavy typing (1.1 keys/s, 210 ms dwell); energized = stress 15 + fast, accurate typing (5.2 keys/s, 2% typos); disoriented = stress 40 + 2 reformulations and 2 hesitations. The real rules then pick the mood, so the panel shows genuine reasoning. The camera is ignored and the cooldown skipped once, but the 3 s dwell still applies. Results on screen re-render (Stage B only) for the committed mood. Triggers: the panel's five buttons, Aura's **Simulate Stress ▾** menu, or `POST /api/simulate`. Starts and stops are logged as `mood_sim_start` / `mood_sim_stop` events.
+
+**Related fix.** For non-how-to queries Stage A has no steps, yet the Overwhelmed policy requires `GuidedSteps`. The validator now removes duplicate steps; when there are no Stage A steps it titles the list "What matters most", tops it up with other high-importance claims, and marks it `kind: "facts"` so the widget renders it without checkboxes.
+
 ---
 
 ## 6. Phased roadmap
@@ -354,6 +368,7 @@ No second database is added.
 | 4 | `context_window` and the silent-by-default anticipation policy in all 3 modes (reactive, deferred, continuous): clarifiers, struggle detection, re-layout proposals, follow-ups | A reformulation or sustained stress produces exactly one proposal; calm traces stay silent; accept and undo work |
 | 5 | Research: new `research.py` record types, consent v4, exports, study-task presets with recorded fixtures, survey, `study_metrics.py` | A full recorded mock trial (consent, then Record, then 3 tasks, then survey, then Journal) verifies its hash chain and exports clean CSVs |
 | 6 (optional) | Camera sensor `[vision]` ported into `backend/vision/`, fixed-rate tick, off by default | Turning the camera on adds valence to fusion; turning it off releases the device immediately |
+| 6b | Explainable AI panel, camera explanation and mood simulator (§5b) | Each simulated mood is chosen by the real rules within the 3 s dwell; the explanation always agrees with the decision; the preview stops when the panel closes |
 | 7 | Packaging (`AuraUI.exe` with `search_ui/dist`) and the user study and write-up | The exe opens search with no Python installed |
 
 ### Study design (Phase 7)
@@ -409,9 +424,10 @@ No second database is added.
 - **Manual end-to-end:**
   1. `python run.py`, then click Search (or press the hotkey). The window opens.
   2. Search a fixture query.
-  3. Use Aura's **Simulate Stress** and **Demo** stages to drive state. Check layout changes, the single proposal, accept and undo, "Standard view", and sandbox iframe isolation.
-  4. Switch Aura to **Control (A)**: search becomes prompt-only.
-  5. Repeat with a live Tavily key.
-  6. Dev mode: `python -m backend.search.server --standalone` opened in the browser pane.
+  3. Use Aura's **Simulate Stress ▾** menu (stress spike or a mood) and **Demo** stages to drive state. Check layout changes, the single proposal, accept and undo, "Standard view", and sandbox iframe isolation.
+  4. Open **Explain**: simulate each mood and check the chosen state, the rule trace and the re-laid-out results. With the camera on, check the preview, emotion scores and "feeding the rules" note, and that the preview stops after closing the panel.
+  5. Switch Aura to **Control (A)**: search becomes prompt-only.
+  6. Repeat with a live Tavily key.
+  7. Dev mode: `python -m backend.search.server --standalone` opened in the browser pane.
 - **Latency budget:** skeleton under 150 ms; Stage A under 6 s on free OpenRouter models; re-render under 3 s. Timings are logged in the `search` records.
 - **Regression:** Aura still launches, calibrates, records, syncs and runs all interventions after `StressEngine` is extracted and the server thread is added. The server shuts down cleanly on Quit.

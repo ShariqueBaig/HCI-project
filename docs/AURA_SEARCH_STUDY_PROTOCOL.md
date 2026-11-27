@@ -46,6 +46,7 @@ here is produced by the current code.
 3. **Privacy:** enter the participant code and decide with the participant whether to keep the words of their searches (checkbox). Then **Save consent** (consent v4).
 4. **Calibrate** (30 s typing baseline). The search box uses the same baseline.
 5. *(Optional)* Turn the camera on from the search window. This needs `pip install ".[vision]"` and isn't available in the exe. Tell the participant the video never leaves the computer.
+   - Keep the **Explain** panel closed during tasks, and don't use mood simulation (the panel's mood buttons or Aura's **Simulate Stress ▾** menu) while recording: a simulated mood replaces the participant's real signals and changes their layouts. Explain is for the debrief, demos and piloting.
 
 ## 4. Session procedure (about 45 minutes)
 
@@ -75,7 +76,7 @@ There is one hash-chained `.jsonl` per block in `data/sessions/<pseudonym>/`. Ch
 | `sessions.csv` | block | condition, duration, mean and peak stress, time per tier, self-report, journal |
 | `ticks.csv` | 3 Hz stress tick | score, tier, typing and mouse features |
 | `searches.csv` | search | query (or hash), task_id, adaptive, policy, state, confidence, stress, camera valence and arousal, reformulation, query_uncertain, widgets, topology, claims shown, unsupported phrases removed, stage timings, query-typing kps and error rate |
-| `search_events.csv` | decision or interaction | proposal, accept, dismiss, undo, expired, counterfactual (C1), standard/adapted view, backtrack, rage_click, hesitation, camera on/off; with target, from and latency |
+| `search_events.csv` | decision or interaction | proposal, accept, dismiss, undo, expired, counterfactual (C1), standard/adapted view, backtrack, rage_click, hesitation, camera on/off, mood_sim_start/stop; with target, from and latency |
 | `tasks.csv` | task start or end | task_id, duration_s, number of searches |
 | `surveys.csv` | questionnaire | success, SAM ×3, NASA-TLX ×3, personalization, control, trust, efficiency, effectiveness, SUS items and score, optional answer text |
 
@@ -95,7 +96,7 @@ Cloud sync, if enabled, uploads only aggregates (`search_*` counts and `search_s
 
 ## 7. Offline ablations (RQ3)
 
-Replay logged `searches.csv` rows through `backend/search/state_fusion.fuse()` with signals removed: Aura stress only, query typing only, behaviour only, camera only. Compare the inferred states with:
+Exclude any search made between a `mood_sim_start` and its `mood_sim_stop` (or 45 s later) from the analysis. Replay logged `searches.csv` rows through `backend/search/state_fusion.fuse()` with signals removed: Aura stress only, query typing only, behaviour only, camera only. Compare the inferred states with:
 - the full-fusion state; and
 - the participant's SAM ratings for that task.
 
