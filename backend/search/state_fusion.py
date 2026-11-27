@@ -74,7 +74,8 @@ class BehaviourLog:
         """Friction events since t0 (e.g. since the current results appeared)."""
         with self._lock:
             ev = [k for t, k in self.events if t >= t0]
-        return {'rage_clicks': ev.count('rage_click'), 'hesitations': ev.count('hesitation'),
+        hes = ev.count('hesitation') + ev.count('scroll_thrash') + ev.count('hover_abandon')
+        return {'rage_clicks': ev.count('rage_click'), 'hesitations': hes,
                 'backtracks': ev.count('backtrack')}
 
     def counts(self, now=None):
@@ -83,7 +84,8 @@ class BehaviourLog:
             ev = [k for t, k in self.events if now - t <= BEHAVIOUR_WINDOW_S]
             refs = sum(1 for t, _, r in self.queries if r and now - t <= REFORMULATION_WINDOW_S)
             trail = [q for t, q, _ in list(self.queries)[-5:]]
-        return {'rage_clicks': ev.count('rage_click'), 'hesitations': ev.count('hesitation'),
+        hes = ev.count('hesitation') + ev.count('scroll_thrash') + ev.count('hover_abandon')
+        return {'rage_clicks': ev.count('rage_click'), 'hesitations': hes,
                 'backtracks': ev.count('backtrack'), 'reformulations': refs, 'query_trail': trail}
 
 
@@ -132,6 +134,14 @@ def fuse(live, typing=None, behaviour=None, affect=None):
     tier = int((live or {}).get('tier') or 0)
     blocking = bool((live or {}).get('focus_blocking'))
 
+    # Personalize typing tempo & dwell thresholds when calibrated
+    calibrated = bool((live or {}).get('calibrated'))
+    b_kps = float((live or {}).get('baseline_kps') or 0.0) if calibrated else 0.0
+    b_dwell = float((live or {}).get('baseline_dwell') or 0.0) if calibrated else 0.0
+    fatigued_kps_max = round(max(0.8, min(2.2, b_kps * 0.55)), 2) if b_kps > 0.5 else 1.6
+    fatigued_dwell_min = round(max(0.14, b_dwell * 1.35), 3) if b_dwell > 0.03 else 0.14
+    energized_kps_min = round(max(3.5, b_kps * 1.25), 2) if b_kps > 0.5 else 4.0
+
     if stress is None:
         state, conf = 'focused', 0.3
         evidence.append('No live signals yet; using the default layout.')
@@ -153,23 +163,23 @@ def fuse(live, typing=None, behaviour=None, affect=None):
         if refs >= 2:
             evidence.append('The query was reworded {} times in a few minutes.'.format(refs))
         if hes >= 2:
-            evidence.append('Long pauses before clicking ({}).'.format(hes))
-    elif ((typing_fresh and stress < 45 and 0 < kps < 1.6 and dwell > 0.14)
+            evidence.append('Repeated hesitation or scroll-thrashing ({}).'.format(hes))
+    elif ((typing_fresh and stress < 45 and 0 < kps < fatigued_kps_max and dwell > fatigued_dwell_min)
           or (cam and stress < 45 and val < -0.18 and aro < -0.20)):
         state = 'fatigued'
-        if typing_fresh and 0 < kps < 1.6 and dwell > 0.14:
-            conf = 0.55 + min(0.25, (dwell - 0.14) * 2)
+        if typing_fresh and 0 < kps < fatigued_kps_max and dwell > fatigued_dwell_min:
+            conf = 0.55 + min(0.25, (dwell - fatigued_dwell_min) * 2)
             evidence.append('Slow, heavy typing ({:.1f} keys/s, {:.0f} ms per key).'.format(kps, dwell * 1000))
         else:
             conf = 0.55
         if cam and val < -0.18 and aro < -0.20:
             conf += 0.1
             evidence.append('You look tired (camera: low energy, low mood).')
-    elif ((typing_fresh and stress < 30 and kps >= 4.0 and err < 0.08)
+    elif ((typing_fresh and stress < 30 and kps >= energized_kps_min and err < 0.08)
           or (cam and stress < 30 and val >= 0.32 and aro >= 0.15)):
         state = 'energized'
-        if typing_fresh and kps >= 4.0 and err < 0.08:
-            conf = 0.55 + min(0.3, (kps - 4.0) * 0.1)
+        if typing_fresh and kps >= energized_kps_min and err < 0.08:
+            conf = 0.55 + min(0.3, (kps - energized_kps_min) * 0.1)
             evidence.append('Fast, accurate typing ({:.1f} keys/s) with low stress.'.format(kps))
         else:
             conf = 0.55
@@ -187,7 +197,9 @@ def fuse(live, typing=None, behaviour=None, affect=None):
     from backend.search.xai import explain
     xai = explain(state=state, stress=stress, tier=tier, blocking=blocking, friction=friction, hes=hes,
                   refs=refs, typing_fresh=typing_fresh, kps=kps, dwell=dwell, err=err, cam=cam,
-                  val=val, aro=aro, load=load, parts=stress_parts)
+                  val=val, aro=aro, load=load, parts=stress_parts,
+                  fatigued_kps_max=fatigued_kps_max, fatigued_dwell_min=fatigued_dwell_min,
+                  energized_kps_min=energized_kps_min)
     return {
         'xai': xai,
         'state': state,

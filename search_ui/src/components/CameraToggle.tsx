@@ -43,8 +43,8 @@ export function CameraToggle({ face }: { face: boolean | undefined }) {
         title={st.active
           ? 'Your expression is read on this computer only; no video is stored or sent. Click to turn off.'
           : 'Optional: let Aura read your expression on this computer to adapt better. Off by default.'}
-        className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm disabled:opacity-60"
-        style={{ borderColor: st.active ? 'var(--aura-elev)' : 'var(--aura-border)', background: 'var(--aura-surface)' }}
+        className="aura-target flex items-center gap-2 rounded-full border text-sm disabled:opacity-60"
+        style={{ borderColor: st.active ? 'var(--aura-elev)' : 'var(--aura-border-interactive)', background: 'var(--aura-surface)' }}
       >
         {st.active ? <Camera size={14} aria-hidden /> : <CameraOff size={14} aria-hidden />}
         {st.active && <span className="h-2 w-2 animate-pulse rounded-full" style={{ background: 'var(--aura-elev)' }} aria-hidden />}

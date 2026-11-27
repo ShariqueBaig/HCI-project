@@ -3,7 +3,7 @@ import type { ConnectionStatus, LiveState } from '../types';
 const TIER_VAR = ['var(--aura-calm)', 'var(--aura-mild)', 'var(--aura-elev)'];
 
 export function StressChip({ live, status }: { live: LiveState | null; status: ConnectionStatus }) {
-  const color = live ? TIER_VAR[live.tier] : 'var(--aura-faint)';
+  const color = live ? TIER_VAR[live.tier] : 'var(--aura-subtle)';
   const pct = live ? Math.max(0, Math.min(100, live.score)) : 0;
   return (
     <div
@@ -15,7 +15,7 @@ export function StressChip({ live, status }: { live: LiveState | null; status: C
       <span className="text-sm font-medium" style={{ color }}>
         {live ? live.label : status === 'unauthorized' ? 'No access' : 'Waiting'}
       </span>
-      <div className="h-1.5 w-24 overflow-hidden rounded-full" style={{ background: 'var(--aura-faint)' }}>
+      <div className="h-1.5 w-24 overflow-hidden rounded-full" style={{ background: 'var(--aura-track)' }}>
         <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, background: color }} />
       </div>
       <span className="w-8 text-right text-xs tabular-nums" style={{ color: 'var(--aura-muted)' }}>

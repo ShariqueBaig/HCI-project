@@ -38,11 +38,13 @@ class LiveStateStore:
 
 
 def build_snapshot(*, score, tier, features, condition, calibrated,
-                   baseline_cov=0.0, baseline_err=0.0, dnd_active=False,
-                   focus_blocking=False, breathing_active=False, held_count=0,
+                   baseline_cov=0.0, baseline_err=0.0,
+                   baseline_kps=0.0, baseline_dwell=0.0,
+                   dnd_active=False, focus_blocking=False,
+                   breathing_active=False, held_count=0,
                    simulated=False, demo=False, recording=False,
-                   brightness=None, session_stats=None):
-    """Build the LiveState dict from values the Tk thread already holds."""
+                   brightness=None, color_temp=6500, session_stats=None):
+    """Build the LiveState dict from values the controller already holds."""
     feats = {k: (round(v, 4) if isinstance(v, float) else v)
              for k, v in (features or {}).items()}
     mf, sf = feats.get('mean_flight', 0) or 0, feats.get('std_flight', 0) or 0
@@ -57,6 +59,8 @@ def build_snapshot(*, score, tier, features, condition, calibrated,
         'calibrated': bool(calibrated),
         'baseline_cov': baseline_cov,
         'baseline_err': baseline_err,
+        'baseline_kps': baseline_kps,
+        'baseline_dwell': baseline_dwell,
         'dnd_active': bool(dnd_active),
         'focus_blocking': bool(focus_blocking),
         'breathing_active': bool(breathing_active),
@@ -65,6 +69,7 @@ def build_snapshot(*, score, tier, features, condition, calibrated,
         'demo': bool(demo),
         'recording': bool(recording),
         'brightness': brightness,
+        'color_temp': color_temp,
         'session_stats': session_stats or {},
     }
 

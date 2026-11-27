@@ -90,13 +90,10 @@ It exits 1 if the check fails, so a lab script can gate on it. Double-clicking
 `NOT SET` salt, `sign-in failed`, or `audio: unavailable` are the three things to
 fix before participants arrive.
 
-> **Building the exe yourself?** The volume code imports `pycaw` lazily, so give
-> PyInstaller the hint, otherwise the packaged build silently falls back to
-> media keys:
+> **Building the exe yourself?** Use `build_exe.py` after building the React frontend so `search_ui/dist`, `search_fixtures/`, `aura_defaults.json`, and `pycaw` are all bundled:
 > ```bash
-> python -m PyInstaller --onefile --noconsole --name "AuraUI" \
->        --add-data "aura_defaults.json;." \
->        --hidden-import pycaw --hidden-import comtypes run.py
+> cd search_ui && npm run build && cd ..
+> python build_exe.py
 > ```
 
 ---
@@ -165,13 +162,12 @@ every session.
 
 Then the participant:
 
-1. Launches Aura UI.
-2. Ticks **Record session** when the task starts (the button shows `● Rec 00:00`).
+1. Launches Aura UI (`AuraUI.exe` or `python run.py`).
+2. Opens **Lab Console (`Ctrl+Shift+L`) → Study** and clicks **Start Recording** (which automatically locks Lab into Participant Blinded Mode).
 3. Plays music however they like — the app controls **Windows system volume**.
-   Optionally clicks **Connect Spotify** if they want per-track control and the
-   account is allowlisted.
+   Optionally clicks **Connect Spotify** in the **Wellness** tab if they want per-track control and the account is allowlisted.
 4. Works for 20–30 minutes.
-5. Journal → 0–10 ratings → **Save entry** (this finalises and uploads).
+5. Opens **Lab (`Ctrl+Shift+L`) → Study → Stop Recording** → sets 0–10 ratings in **Finish Recorded Session** → **Save & Finalize** (finalizes and uploads).
 
 Run `python tools/lab_setup.py check` once after a participant if you want
 confirmation of their name before they start work; otherwise `verify` after the
@@ -234,7 +230,7 @@ Each finished session becomes **one document** containing:
 
 - the salted pseudonym and the participant's study condition
 - numeric telemetry only (≤ 800 sampled ticks, plus summary and ratings)
-- the participant's journal note and Aura's reflection (consent v3)
+- the participant's journal note and Aura's reflection (plus search aggregate metrics under Consent v4)
 - `uid` — the station's anonymous identity, checked by the rules
 - `chain_ok` — `false` if the local log was damaged (e.g. the machine was killed
   mid-session); such a document is still uploaded but flagged
@@ -247,9 +243,7 @@ identical.
 `journal.json` and `settings.json`. Keep the folders until the study is written
 up; they are your backup if the network died.
 
-**Withdrawal** — Privacy → *Withdraw + delete* deletes the local files *and* this
-station's uploaded documents for that pseudonym. On a multi-station lab, run it
-from each station the participant used.
+**Withdrawal** — **Wellness → Setup & Privacy → Manage data → Withdraw & delete data…** (confirmed) deletes the local files *and* this station's uploaded documents for that pseudonym. On a multi-station lab, run it from each station the participant used.
 
 ---
 
@@ -308,8 +302,8 @@ marker is only written after Firestore confirms the write.
 - [ ] `status` shows `enabled`, a `station uid`, `pending: 0`
 - [ ] Firestore rules published (`docs/FIREBASE_SETUP.md`)
 - [ ] `check` on every station: named + `write test: write + delete confirmed`
-- [ ] Consent text version matches the one in the app (3.0)
+- [ ] Consent version matches the current schema (`4`) and Participant Blinded Mode engages on recording
 - [ ] Arm assignments written down (P01…P12 → intervention / control)
 - [ ] Spotify allowlist not needed — audio is Windows system volume
 - [ ] `prepare` run before each participant; `verify` + `reset` after
-- [ ] Local `data/sessions` folders backed up at the end of the day
+- [ ] Local `data/sessions` folders backed up (and CSVs exported via Lab Console or `research.export_dataset`) at the end of the day

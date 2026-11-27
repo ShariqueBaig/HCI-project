@@ -1,21 +1,451 @@
 @import "tailwindcss";
 
-/* Aura UI palette (run.py) -- the search window looks like part of Aura. */
-:root {
-  --aura-bg: #0b0a10;
-  --aura-surface: #15131d;
-  --aura-border: #2b263b;
-  --aura-text: #e8e6ed;
-  --aura-muted: #9d98ab;
-  --aura-faint: #3a3550;
-  --aura-calm: #7fae9d;
-  --aura-mild: #d9a054;
-  --aura-elev: #c97070;
-  /* Adaptive tokens, driven by the state policy in later phases */
+/* Aura v2 Design System — 30 WCAG-Verified Theme x Mood Atmospheres
+   Themes: dark (Calm Obsidian), slate (Nordic Dusk), light (Warm Paper),
+           sepia (Book Sepia), contrast (High Contrast AAA) */
+
+/* ============================================================ 1. DARK (Calm Obsidian) */
+:root,
+[data-theme='dark'] {
+  --aura-bg: #0c0b12;
+  --aura-surface: #161420;
+  --aura-surface-elev: #1f1c2e;
+  --aura-border: #3d3752;
+  --aura-border-interactive: #6c648a;
+  --aura-text: #eeecf3;
+  --aura-muted: #b2adc4;
+  --aura-subtle: #9892ad;
+  --aura-track: #2e2942;
+  --aura-calm: #7fb8a4;
+  --aura-accent-soft: rgba(127, 184, 164, 0.14);
+  --aura-glow: rgba(127, 184, 164, 0.08);
+  --aura-mild: #e2ac5f;
+  --aura-elev: #e08282;
   --aura-target-scale: 1;
   --aura-type-scale: 1;
   --aura-line-height: 1.55;
   color-scheme: dark;
+}
+
+[data-theme='dark'][data-mood='focused'] {
+  --aura-bg: #0a0e17;
+  --aura-surface: #121927;
+  --aura-surface-elev: #192338;
+  --aura-border: #2a3b58;
+  --aura-border-interactive: #586f94;
+  --aura-text: #ecf2fb;
+  --aura-muted: #a6b7d0;
+  --aura-subtle: #8ea2be;
+  --aura-calm: #6aa6ff;
+  --aura-accent-soft: rgba(106, 166, 255, 0.15);
+  --aura-glow: rgba(106, 166, 255, 0.13);
+}
+
+[data-theme='dark'][data-mood='overwhelmed'] {
+  --aura-bg: #09120f;
+  --aura-surface: #111e1a;
+  --aura-surface-elev: #172a24;
+  --aura-border: #28453c;
+  --aura-border-interactive: #53786b;
+  --aura-text: #eaf4f0;
+  --aura-muted: #a3bfb5;
+  --aura-subtle: #8aa99e;
+  --aura-calm: #73c4a8;
+  --aura-accent-soft: rgba(115, 196, 168, 0.16);
+  --aura-glow: rgba(115, 196, 168, 0.14);
+}
+
+[data-theme='dark'][data-mood='fatigued'] {
+  --aura-bg: #14100b;
+  --aura-surface: #201912;
+  --aura-surface-elev: #2b2218;
+  --aura-border: #473828;
+  --aura-border-interactive: #806b54;
+  --aura-text: #f6efe6;
+  --aura-muted: #cbbba8;
+  --aura-subtle: #b39f89;
+  --aura-calm: #ebae5c;
+  --aura-accent-soft: rgba(235, 174, 92, 0.16);
+  --aura-glow: rgba(235, 174, 92, 0.14);
+}
+
+[data-theme='dark'][data-mood='energized'] {
+  --aura-bg: #110c1c;
+  --aura-surface: #1b142b;
+  --aura-surface-elev: #251c3b;
+  --aura-border: #3f3160;
+  --aura-border-interactive: #73619c;
+  --aura-text: #f2ecfc;
+  --aura-muted: #bdb0d9;
+  --aura-subtle: #a495c4;
+  --aura-calm: #b794ff;
+  --aura-accent-soft: rgba(183, 148, 255, 0.17);
+  --aura-glow: rgba(183, 148, 255, 0.16);
+}
+
+[data-theme='dark'][data-mood='disoriented'] {
+  --aura-bg: #081118;
+  --aura-surface: #101d28;
+  --aura-surface-elev: #162838;
+  --aura-border: #284256;
+  --aura-border-interactive: #51748c;
+  --aura-text: #ebf4fa;
+  --aura-muted: #a2bdd1;
+  --aura-subtle: #88a8bf;
+  --aura-calm: #63c3eb;
+  --aura-accent-soft: rgba(99, 195, 235, 0.16);
+  --aura-glow: rgba(99, 195, 235, 0.14);
+}
+
+/* ============================================================ 2. SLATE (Nordic Dusk) */
+[data-theme='slate'] {
+  --aura-bg: #181d26;
+  --aura-surface: #212834;
+  --aura-surface-elev: #2b3444;
+  --aura-border: #3f4b61;
+  --aura-border-interactive: #71829b;
+  --aura-text: #edf2f8;
+  --aura-muted: #b8c4d4;
+  --aura-subtle: #9eacc0;
+  --aura-track: #343e50;
+  --aura-calm: #7dc7b4;
+  --aura-accent-soft: rgba(125, 199, 180, 0.15);
+  --aura-glow: rgba(125, 199, 180, 0.09);
+  --aura-mild: #eab66c;
+  --aura-elev: #ef9292;
+  color-scheme: dark;
+}
+
+[data-theme='slate'][data-mood='focused'] {
+  --aura-bg: #161d29;
+  --aura-surface: #1f293a;
+  --aura-surface-elev: #28354b;
+  --aura-border: #3b4d6b;
+  --aura-border-interactive: #6982a6;
+  --aura-text: #eef4fc;
+  --aura-muted: #b3c5df;
+  --aura-subtle: #9ab0cf;
+  --aura-calm: #7bb5ff;
+  --aura-accent-soft: rgba(123, 181, 255, 0.16);
+  --aura-glow: rgba(123, 181, 255, 0.12);
+}
+
+[data-theme='slate'][data-mood='overwhelmed'] {
+  --aura-bg: #15211e;
+  --aura-surface: #1d2e29;
+  --aura-surface-elev: #253b35;
+  --aura-border: #36544b;
+  --aura-border-interactive: #638b7e;
+  --aura-text: #ebf6f2;
+  --aura-muted: #b0ccc3;
+  --aura-subtle: #96b8ad;
+  --aura-calm: #7cd0b5;
+  --aura-accent-soft: rgba(124, 208, 181, 0.16);
+  --aura-glow: rgba(124, 208, 181, 0.12);
+}
+
+[data-theme='slate'][data-mood='fatigued'] {
+  --aura-bg: #221d17;
+  --aura-surface: #2e261e;
+  --aura-surface-elev: #3b3126;
+  --aura-border: #564738;
+  --aura-border-interactive: #907a63;
+  --aura-text: #f7f0e8;
+  --aura-muted: #d1c2b0;
+  --aura-subtle: #b9a792;
+  --aura-calm: #f2ba6d;
+  --aura-accent-soft: rgba(242, 186, 109, 0.16);
+  --aura-glow: rgba(242, 186, 109, 0.12);
+}
+
+[data-theme='slate'][data-mood='energized'] {
+  --aura-bg: #1d182b;
+  --aura-surface: #27203a;
+  --aura-surface-elev: #332a4c;
+  --aura-border: #4d3f70;
+  --aura-border-interactive: #806fa8;
+  --aura-text: #f3eefc;
+  --aura-muted: #c5b9e0;
+  --aura-subtle: #ad9fd0;
+  --aura-calm: #c4a6ff;
+  --aura-accent-soft: rgba(196, 166, 255, 0.17);
+  --aura-glow: rgba(196, 166, 255, 0.14);
+}
+
+[data-theme='slate'][data-mood='disoriented'] {
+  --aura-bg: #14202b;
+  --aura-surface: #1c2c3b;
+  --aura-surface-elev: #253a4e;
+  --aura-border: #37536b;
+  --aura-border-interactive: #61849e;
+  --aura-text: #ecf5fb;
+  --aura-muted: #aec8db;
+  --aura-subtle: #94b3ca;
+  --aura-calm: #76cef2;
+  --aura-accent-soft: rgba(118, 206, 242, 0.16);
+  --aura-glow: rgba(118, 206, 242, 0.13);
+}
+
+/* ============================================================ 3. LIGHT (Warm Paper) */
+[data-theme='light'] {
+  --aura-bg: #f8f6f1;
+  --aura-surface: #ffffff;
+  --aura-surface-elev: #efeae0;
+  --aura-border: #cfc8b8;
+  --aura-border-interactive: #766e62;
+  --aura-text: #1c1a24;
+  --aura-muted: #504b5e;
+  --aura-subtle: #625d73;
+  --aura-track: #ded8cb;
+  --aura-calm: #2a6b55;
+  --aura-accent-soft: rgba(42, 107, 85, 0.10);
+  --aura-glow: rgba(42, 107, 85, 0.07);
+  --aura-mild: #965908;
+  --aura-elev: #b03838;
+  color-scheme: light;
+}
+
+[data-theme='light'][data-mood='focused'] {
+  --aura-bg: #f3f6fb;
+  --aura-surface: #ffffff;
+  --aura-surface-elev: #e7eef8;
+  --aura-border: #c5d3e8;
+  --aura-border-interactive: #64748b;
+  --aura-text: #0f172a;
+  --aura-muted: #43536b;
+  --aura-subtle: #55657d;
+  --aura-calm: #1d4ed8;
+  --aura-accent-soft: rgba(29, 78, 216, 0.10);
+  --aura-glow: rgba(29, 78, 216, 0.10);
+}
+
+[data-theme='light'][data-mood='overwhelmed'] {
+  --aura-bg: #f1f7f4;
+  --aura-surface: #ffffff;
+  --aura-surface-elev: #e2efe9;
+  --aura-border: #bdd6cb;
+  --aura-border-interactive: #587a6e;
+  --aura-text: #122922;
+  --aura-muted: #3f5e54;
+  --aura-subtle: #4d6e63;
+  --aura-calm: #256654;
+  --aura-accent-soft: rgba(37, 102, 84, 0.11);
+  --aura-glow: rgba(37, 102, 84, 0.11);
+}
+
+[data-theme='light'][data-mood='fatigued'] {
+  --aura-bg: #faf5ec;
+  --aura-surface: #fffdf9;
+  --aura-surface-elev: #f2e8d8;
+  --aura-border: #e0d0b8;
+  --aura-border-interactive: #806c58;
+  --aura-text: #291f16;
+  --aura-muted: #5c4c3c;
+  --aura-subtle: #6e5c4a;
+  --aura-calm: #9a4a06;
+  --aura-accent-soft: rgba(154, 74, 6, 0.11);
+  --aura-glow: rgba(180, 83, 9, 0.11);
+}
+
+[data-theme='light'][data-mood='energized'] {
+  --aura-bg: #f5f2fc;
+  --aura-surface: #ffffff;
+  --aura-surface-elev: #eae4fa;
+  --aura-border: #d3c8f0;
+  --aura-border-interactive: #716094;
+  --aura-text: #1e1433;
+  --aura-muted: #51436e;
+  --aura-subtle: #615280;
+  --aura-calm: #6324c7;
+  --aura-accent-soft: rgba(99, 36, 199, 0.11);
+  --aura-glow: rgba(99, 36, 199, 0.12);
+}
+
+[data-theme='light'][data-mood='disoriented'] {
+  --aura-bg: #f0f6fb;
+  --aura-surface: #ffffff;
+  --aura-surface-elev: #e2eef8;
+  --aura-border: #bad2e6;
+  --aura-border-interactive: #56748f;
+  --aura-text: #0c2236;
+  --aura-muted: #3e5b75;
+  --aura-subtle: #4c6b87;
+  --aura-calm: #036196;
+  --aura-accent-soft: rgba(3, 97, 150, 0.11);
+  --aura-glow: rgba(3, 97, 150, 0.11);
+}
+
+/* ============================================================ 4. SEPIA (Book Parchment) */
+[data-theme='sepia'] {
+  --aura-bg: #f3ead8;
+  --aura-surface: #fbf5e9;
+  --aura-surface-elev: #e8ddc7;
+  --aura-border: #cfc0a6;
+  --aura-border-interactive: #7b6852;
+  --aura-text: #292016;
+  --aura-muted: #594938;
+  --aura-subtle: #665543;
+  --aura-track: #d9cbb2;
+  --aura-calm: #24634e;
+  --aura-accent-soft: rgba(36, 99, 78, 0.11);
+  --aura-glow: rgba(36, 99, 78, 0.08);
+  --aura-mild: #8a4d05;
+  --aura-elev: #a33030;
+  color-scheme: light;
+}
+
+[data-theme='sepia'][data-mood='focused'] {
+  --aura-bg: #efe8d8;
+  --aura-surface: #f9f4e8;
+  --aura-surface-elev: #e4dcc9;
+  --aura-border: #c7bfa8;
+  --aura-border-interactive: #6f6b5c;
+  --aura-text: #21201a;
+  --aura-muted: #4d4c43;
+  --aura-subtle: #5c5b52;
+  --aura-calm: #1e4ca8;
+  --aura-accent-soft: rgba(30, 76, 168, 0.11);
+  --aura-glow: rgba(30, 76, 168, 0.09);
+}
+
+[data-theme='sepia'][data-mood='overwhelmed'] {
+  --aura-bg: #edf0e2;
+  --aura-surface: #f7f9ef;
+  --aura-surface-elev: #e0e5d2;
+  --aura-border: #c0cbb3;
+  --aura-border-interactive: #5d7361;
+  --aura-text: #1d291f;
+  --aura-muted: #465949;
+  --aura-subtle: #546958;
+  --aura-calm: #21614c;
+  --aura-accent-soft: rgba(33, 97, 76, 0.11);
+  --aura-glow: rgba(33, 97, 76, 0.10);
+}
+
+[data-theme='sepia'][data-mood='fatigued'] {
+  --aura-bg: #f5ebd6;
+  --aura-surface: #fdf7ea;
+  --aura-surface-elev: #ebdec4;
+  --aura-border: #d6c3a3;
+  --aura-border-interactive: #7d6850;
+  --aura-text: #2b1f14;
+  --aura-muted: #5c4936;
+  --aura-subtle: #695540;
+  --aura-calm: #8c4305;
+  --aura-accent-soft: rgba(140, 67, 5, 0.11);
+  --aura-glow: rgba(140, 67, 5, 0.10);
+}
+
+[data-theme='sepia'][data-mood='energized'] {
+  --aura-bg: #f1e8e4;
+  --aura-surface: #faf3f0;
+  --aura-surface-elev: #e6dad5;
+  --aura-border: #cebeb8;
+  --aura-border-interactive: #796479;
+  --aura-text: #291d29;
+  --aura-muted: #594759;
+  --aura-subtle: #675467;
+  --aura-calm: #5f24ad;
+  --aura-accent-soft: rgba(95, 36, 173, 0.11);
+  --aura-glow: rgba(95, 36, 173, 0.10);
+}
+
+[data-theme='sepia'][data-mood='disoriented'] {
+  --aura-bg: #eaeff0;
+  --aura-surface: #f5f8f9;
+  --aura-surface-elev: #dde5e8;
+  --aura-border: #bccad0;
+  --aura-border-interactive: #566e7d;
+  --aura-text: #16252e;
+  --aura-muted: #3f5563;
+  --aura-subtle: #4c6373;
+  --aura-calm: #075b87;
+  --aura-accent-soft: rgba(7, 91, 135, 0.11);
+  --aura-glow: rgba(7, 91, 135, 0.10);
+}
+
+/* ============================================================ 5. CONTRAST (WCAG AAA >= 7:1) */
+[data-theme='contrast'] {
+  --aura-bg: #000000;
+  --aura-surface: #0a0a0a;
+  --aura-surface-elev: #171717;
+  --aura-border: #737373;
+  --aura-border-interactive: #a6a6a6;
+  --aura-text: #ffffff;
+  --aura-muted: #e2e2e2;
+  --aura-subtle: #cccccc;
+  --aura-track: #333333;
+  --aura-calm: #5ce6b8;
+  --aura-accent-soft: rgba(92, 230, 184, 0.18);
+  --aura-glow: rgba(92, 230, 184, 0.10);
+  --aura-mild: #ffd166;
+  --aura-elev: #ff8080;
+  color-scheme: dark;
+}
+
+[data-theme='contrast'][data-mood='focused'] {
+  --aura-bg: #000000;
+  --aura-surface: #080c14;
+  --aura-surface-elev: #111926;
+  --aura-border: #6684b3;
+  --aura-border-interactive: #99b8e6;
+  --aura-muted: #e0ebff;
+  --aura-subtle: #c7dcff;
+  --aura-calm: #7ab8ff;
+  --aura-accent-soft: rgba(122, 184, 255, 0.18);
+  --aura-glow: rgba(122, 184, 255, 0.12);
+}
+
+[data-theme='contrast'][data-mood='overwhelmed'] {
+  --aura-bg: #000000;
+  --aura-surface: #07120e;
+  --aura-surface-elev: #0e211a;
+  --aura-border: #599680;
+  --aura-border-interactive: #88c9b2;
+  --aura-muted: #dcf7ec;
+  --aura-subtle: #c0ebd9;
+  --aura-calm: #66f0c2;
+  --aura-accent-soft: rgba(102, 240, 194, 0.18);
+  --aura-glow: rgba(102, 240, 194, 0.12);
+}
+
+[data-theme='contrast'][data-mood='fatigued'] {
+  --aura-bg: #000000;
+  --aura-surface: #120d06;
+  --aura-surface-elev: #21180c;
+  --aura-border: #99794c;
+  --aura-border-interactive: #cca878;
+  --aura-muted: #faecd8;
+  --aura-subtle: #edd6b7;
+  --aura-calm: #ffbe66;
+  --aura-accent-soft: rgba(255, 190, 102, 0.18);
+  --aura-glow: rgba(255, 190, 102, 0.12);
+}
+
+[data-theme='contrast'][data-mood='energized'] {
+  --aura-bg: #000000;
+  --aura-surface: #0f081a;
+  --aura-surface-elev: #1c102e;
+  --aura-border: #8264b3;
+  --aura-border-interactive: #b394e6;
+  --aura-muted: #ece0ff;
+  --aura-subtle: #d8c4ff;
+  --aura-calm: #cca8ff;
+  --aura-accent-soft: rgba(204, 168, 255, 0.19);
+  --aura-glow: rgba(204, 168, 255, 0.13);
+}
+
+[data-theme='contrast'][data-mood='disoriented'] {
+  --aura-bg: #000000;
+  --aura-surface: #061017;
+  --aura-surface-elev: #0c1d29;
+  --aura-border: #5889ab;
+  --aura-border-interactive: #89bce0;
+  --aura-muted: #dceffa;
+  --aura-subtle: #bfdff5;
+  --aura-calm: #6ed8ff;
+  --aura-accent-soft: rgba(110, 216, 255, 0.18);
+  --aura-glow: rgba(110, 216, 255, 0.12);
 }
 
 * {
@@ -25,24 +455,226 @@
 body {
   margin: 0;
   font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  font-size: 14px;
   background: var(--aura-bg);
   color: var(--aura-text);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 380ms ease, color 300ms ease, border-color 300ms ease;
 }
 
-input::placeholder {
-  color: var(--aura-muted);
+.aura-atmosphere-canvas {
+  background-image: radial-gradient(ellipse 80% 38% at 50% -6%, var(--aura-glow), transparent 70%);
+  transition: background-color 380ms ease, color 300ms ease, border-color 300ms ease;
 }
 
-/* Fitts's-law hit-target scaling (ported from the webcam app) */
+input::placeholder,
+textarea::placeholder {
+  color: var(--aura-subtle);
+}
+
+/* Global accessible focus ring (WCAG 2.4.7) layered so utilities like outline-none still work */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--aura-calm);
+    outline-offset: 2px;
+  }
+
+  [data-theme='contrast'] :focus-visible {
+    outline-width: 3px;
+  }
+}
+
+.aura-search-box {
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.aura-search-box:focus-within {
+  border-color: var(--aura-calm) !important;
+  box-shadow: 0 0 0 3px var(--aura-accent-soft);
+}
+
+[data-theme='contrast'] .aura-search-box:focus-within {
+  box-shadow: 0 0 0 2px var(--aura-calm);
+}
+
+.aura-search-box input:focus,
+.aura-search-box input:focus-visible {
+  outline: none;
+}
+
+/* Fitts's-law hit-target scaling */
 .aura-target {
   min-height: calc(36px * var(--aura-target-scale));
   padding-inline: calc(12px * var(--aura-target-scale));
 }
 
+.aura-cite-target {
+  min-width: calc(24px * var(--aura-target-scale));
+  min-height: calc(24px * var(--aura-target-scale));
+  padding: 2px 6px;
+}
+
 .aura-readable {
   font-size: calc(1rem * var(--aura-type-scale));
   line-height: var(--aura-line-height);
+}
+
+/* Calm Chrome mode: visually recede secondary controls when user is in Simple / Easy-Read */
+[data-calm-chrome='true'] .aura-secondary-chrome {
+  opacity: 0.62;
+  transition: opacity 250ms ease;
+}
+[data-calm-chrome='true'] .aura-secondary-chrome:hover,
+[data-calm-chrome='true'] .aura-secondary-chrome:focus-within {
+  opacity: 1;
+}
+
+@keyframes aura-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
+}
+
+@keyframes aura-key-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes aura-rhythm-pulse {
+  0% { transform: scale(1); opacity: 0.95; }
+  100% { transform: scale(1.75); opacity: 0.3; }
+}
+
+.aura-caret {
+  animation: aura-caret-blink 1s step-end infinite;
+}
+
+.aura-shake {
+  animation: aura-key-shake 180ms ease-in-out;
+}
+
+.aura-pulse {
+  animation: aura-rhythm-pulse 220ms ease-out;
+}
+
+@keyframes aura-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes aura-bar-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(260%); }
+}
+
+@keyframes aura-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aura-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes aura-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes aura-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes aura-slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes aura-orb-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+@keyframes aura-spin {
+  to { transform: rotate(360deg); }
+}
+
+.aura-shimmer {
+  background-color: var(--aura-surface-elev);
+  background-image: linear-gradient(
+    105deg,
+    var(--aura-surface-elev) 22%,
+    var(--aura-track) 44%,
+    var(--aura-accent-soft) 52%,
+    var(--aura-track) 60%,
+    var(--aura-surface-elev) 82%
+  );
+  background-size: 220% 100%;
+  animation: aura-shimmer 1.6s linear infinite;
+}
+
+.aura-progress-sweep {
+  animation: aura-bar-sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.aura-fade-up {
+  animation: aura-fade-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.aura-fade-in {
+  animation: aura-fade-in 180ms ease-out both;
+}
+
+.aura-scale-in {
+  animation: aura-scale-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.aura-slide-in-right {
+  animation: aura-slide-in-right 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.aura-slide-in-up {
+  animation: aura-slide-in-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.aura-orb-ping {
+  animation: aura-orb-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.aura-spin {
+  animation: aura-spin 1s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

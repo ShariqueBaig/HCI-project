@@ -64,7 +64,7 @@ export function StatePill({ snap }: { snap: StateSnapshot | null }) {
         {snap.adaptive && f.candidate_state && (
           <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--aura-mild)' }}>
             → {STATE_LABEL[f.candidate_state]}
-            <span className="h-1 w-8 overflow-hidden rounded-full" style={{ background: 'var(--aura-faint)' }}>
+            <span className="h-1 w-8 overflow-hidden rounded-full" style={{ background: 'var(--aura-track)' }}>
               <span className="block h-full" style={{ width: `${f.dwell_progress * 100}%`, background: 'var(--aura-mild)' }} />
             </span>
           </span>

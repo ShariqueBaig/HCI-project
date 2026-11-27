@@ -15,6 +15,19 @@ VK_VOLUME_UP   = 0xAF
 KEYEVENTF_KEYUP = 0x0002
 
 
+def detect_screen_diagonal_px() -> float:
+    """Primary display diagonal in pixels for DPI-normalized mouse agitation."""
+    try:
+        user32 = ctypes.windll.user32
+        w = int(user32.GetSystemMetrics(0))
+        h = int(user32.GetSystemMetrics(1))
+        if w > 0 and h > 0:
+            return round(math.hypot(w, h), 1)
+    except Exception:
+        pass
+    return 2203.0  # 1920x1080 fallback
+
+
 class OSController:
     """
     Brightness control via screen_brightness_control (handles both

@@ -42,7 +42,8 @@ def _clause(name, conds):
 
 
 def explain(*, state, stress, tier, blocking, friction, hes, refs, typing_fresh, kps, dwell, err,
-            cam, val, aro, load, parts):
+            cam, val, aro, load, parts,
+            fatigued_kps_max=1.6, fatigued_dwell_min=0.14, energized_kps_min=4.0):
     """Build the explanation dict attached to fuse() output as `xai`."""
     s = stress
     cam_on = bool(cam)
@@ -59,14 +60,14 @@ def explain(*, state, stress, tier, blocking, friction, hes, refs, typing_fresh,
         ],
         'disoriented': [
             _clause('Reworded searches', [_cond('Reformulations (3 min)', refs, '>=', 2)]),
-            _clause('Hesitating', [_cond('Long pauses before clicking', hes, '>=', 2),
-                                   _cond('Fused stress', s, '<', 60, '/100')]),
+            _clause('Interaction uncertainty', [_cond('Hesitations / scroll thrash', hes, '>=', 2),
+                                                _cond('Fused stress', s, '<', 60, '/100')]),
         ],
         'fatigued': [
             _clause('Slow, heavy typing', [_cond('Query typing is fresh', typing_fresh, 'is', True),
                                            _cond('Fused stress', s, '<', 45, '/100'),
-                                           _cond('Typing tempo', kps if typing_fresh else None, '<', 1.6, 'keys/s'),
-                                           _cond('Key hold time', dwell if typing_fresh else None, '>', 0.14, 's')]),
+                                           _cond('Typing tempo', kps if typing_fresh else None, '<', fatigued_kps_max, 'keys/s'),
+                                           _cond('Key hold time', dwell if typing_fresh else None, '>', fatigued_dwell_min, 's')]),
             _clause('Tired face', [_cond('Camera on', cam_on, 'is', True),
                                    _cond('Fused stress', s, '<', 45, '/100'),
                                    _cond('Mood (camera, negative = low)', -val if cam_on else None, '>', 0.18),
@@ -75,7 +76,7 @@ def explain(*, state, stress, tier, blocking, friction, hes, refs, typing_fresh,
         'energized': [
             _clause('Fast, accurate typing', [_cond('Query typing is fresh', typing_fresh, 'is', True),
                                               _cond('Fused stress', s, '<', 30, '/100'),
-                                              _cond('Typing tempo', kps if typing_fresh else None, '>=', 4.0, 'keys/s'),
+                                              _cond('Typing tempo', kps if typing_fresh else None, '>=', energized_kps_min, 'keys/s'),
                                               _cond('Typo rate', err if typing_fresh else None, '<', 0.08)]),
             _clause('Upbeat face', [_cond('Camera on', cam_on, 'is', True),
                                     _cond('Fused stress', s, '<', 30, '/100'),

@@ -66,112 +66,101 @@ To eliminate order, learning, and fatigue effects, use a **counterbalanced withi
 
 ## 4. App Configuration: Condition A vs. Condition B
 
-Before starting each 12-minute session, verify the checkboxes in the Aura UI window match the assigned condition:
+Before starting each 12-minute session, verify settings in the unified Aura UI (**Setup**, **Wellness**, and **Lab Console (`Ctrl+Shift+L`) → Study**):
 
 | Aura UI Control | **Condition A: Control (Baseline)** | **Condition B: Intervention (Aura Active)** |
 | :--- | :--- | :--- |
-| **`Privacy` → Consent** | Granted (`Save consent`) | Granted (`Save consent`) |
-| **Mode Button (next to Calibrate)** | **`Mode: Control (A)`** *(automatically suppresses all interventions, popups & DND, and tags `condition="control"` in `sessions.csv`)* | **`Mode: Active (B)`** *(enables all selected interventions & tags `condition="intervention"` in `sessions.csv`)* |
-| **`Record session`** | **Checked (ON)** *(displays `● Rec MM:SS` timer)* | **Checked (ON)** *(displays `● Rec MM:SS` timer)* |
-| **`Auto-adjust brightness`** | Automatically bypassed in Control mode | **Checked (ON)** *(dims & warms to 5000K in Mild, 3500K in Elevated)* |
-| **`Focus mode`** | Automatically bypassed in Control mode *(shows `passive (Control A)`)* | **Checked (ON)** *(blocks notifications when Stress $\ge 60$; delivers digest on recovery)* |
-| **Breathing Guide & Aura Check-In** | Automatically suppressed in Control mode | Active (automatically prompts physiological sigh & check-in on sustained Elevated stress) |
-| **Spotify Auto-Volume** *(Optional)* | Automatically bypassed in Control mode | Connected (automatically ducks volume during stress spikes) |
+| **Setup Step 1 / Consent v4** | Granted (**I Consent · Continue**) | Granted (**I Consent · Continue**) |
+| **Lab → Study → Condition** | **`Control (A) — Prompt-only`** *(suppresses all sensory interventions, nudges, Focus Assist & adaptive layouts; tags `condition="control"`)* | **`Active (B) — State-aware`** *(enables comfort preferences & adaptive Search layouts; tags `condition="intervention"`)* |
+| **Lab → Study → Recording** | **Start Recording** *(automatically locks Lab Console into Participant Blinded Mode)* | **Start Recording** *(automatically locks Lab Console into Participant Blinded Mode)* |
+| **Wellness → Screen Comfort** | Automatically bypassed in Control mode | **On** *(dims brightness & warms toward 5000K in Mild, 3500K in Elevated)* |
+| **Wellness → Focus Mode** | Automatically bypassed in Control mode | **On** *(silently holds alerts when Stress $\ge 60$; shows calm digest on recovery)* |
+| **Breathing & Corner Nudge** | Automatically suppressed in Control mode | Active *(non-focus-stealing corner pill after 15 s sustained Elevated load; unified Physiological Sigh modal)* |
+| **Wellness → Audio Easing / Spotify** *(Optional)* | Automatically bypassed in Control mode | **On** *(smoothly eases Windows master volume or Spotify playback during stress spikes)* |
 
 ---
 
 ## 5. Step-by-Step Controlled Lab Protocol (~35 Minutes per Participant)
 
 ### Preparation (Before Participant Arrives)
-1. Ensure you are on the `main` branch (`git checkout main`).
-2. Launch Aura UI:
-   ```powershell
-   python run.py
-   ```
-   *(Or run `dist/AuraUI.exe` if using the packaged build).*
+1. Ensure you are running the main Aura UI from the repository root (`python run.py --lab` opens with Lab Console available; the older v1 Tkinter build is archived in `old_version/`).
+2. Or run `dist/AuraUI.exe` if using the packaged build.
 3. Prepare the two equivalent 12-minute cognitive stressor tasks (e.g., **Task 1** and **Task 2**: timed debugging exercises or timed analytical synthesis prompts under a visible countdown timer).
 
 ---
 
 ### Phase 1: Briefing, Informed Consent & Baseline Calibration (3 Minutes)
-1. **Briefing:** Explain to the participant that they will perform two 12-minute computer tasks while Aura UI runs in the background. Reassure them that **no typed characters, words, passwords, or window titles are ever recorded**—only typing speed, rhythm, backspace rate, and mouse distance.
-2. **Save Consent in the App:**
-   * Click **`Privacy`** (located below the brightness slider).
-   * Type the participant's code (e.g., `P01`).
-   * Have the participant review the consent text and click **`Save consent`**.
-3. **30-Second Personal Calibration:**
-   * Click **`Calibrate`** on the left panel.
-   * The **Baseline Calibration modal** opens automatically with a sample passage and an auto-focused text box.
-   * Have the participant type the sample passage at a relaxed, comfortable pace for 30 seconds while watching the progress bar. This saves their personalized `baseline_cov` and `baseline_err`.
+1. **Briefing:** Explain to the participant that they will perform two 12-minute computer tasks while Aura UI runs quietly in the tray/background. Reassure them that **no typed characters, words outside Search, passwords, or window titles are ever recorded**—only typing speed, rhythm, backspace rate, dwell time, and mouse distance.
+2. **Save Consent in Setup Step 1:**
+   * In the **Setup & Calibration** wizard (auto-opens on first start, or via the top-right sliders button), enter the participant's code (e.g., `P01`).
+   * Have the participant review Consent v4 (including the query-text toggle) and click **`I Consent · Continue`**.
+3. **30-Second Personal Calibration (Setup Step 2):**
+   * Click **`Start 30s Calibration`**.
+   * Have the participant type the highlighted upper passage at their natural pace while live WPM, accuracy, and keystrokes mirror inline. This saves their DPI-normalized personal baseline (`baseline_cov`, `baseline_err`, `baseline_kps`, `baseline_dwell`).
+   * Complete Step 3 (**Ambient Comfort Preferences** & theme) and click **`Finish & Open Aura`**.
 
 ---
 
 ### Phase 2: Task Session 1 (12 Minutes)
-1. **Configure Condition:** Click the **`Mode: Active (B)` / `Mode: Control (A)`** button (next to `Calibrate`) to match the participant's assigned first condition (**Condition A** or **Condition B**).
-2. **Start Recording:** Tick **`Record session`**.
-   * Verify that the live timer (`● Rec 00:00`) appears on both the checkbox and the stress gauge.
+1. **Configure Condition:** Open **Lab Console (`Ctrl+Shift+L`) → Study** and select **`Control (A) — Prompt-only`** or **`Active (B) — State-aware`**.
+2. **Start Recording:** Click **`Start Recording`**.
+   * Lab Mode automatically locks into **Participant Blinded Mode** so experimental condition labels and telemetry internals stay hidden from the participant during work.
 3. **Run Task 1 (12:00 timer):**
    * Have the participant begin the timed cognitive stressor task.
-   * **Controlled Distraction Injection:** At **3:00**, **6:00**, and **9:00** on the live `● Rec MM:SS` timer, trigger a synthetic notification by clicking **`Test notification`** in the Aura UI window.
-     * In **Condition A (`Mode: Control (A)`)**, the notification will pop up immediately and interrupt them.
-     * In **Condition B (`Mode: Active (B)`)**, if the participant is in the Elevated tier ($\ge 60$), Focus Mode will suppress the alert (`Held back +1`) and release a calm summary digest once they return to Calm.
+   * **Controlled Distraction Injection:** At **3:00**, **6:00**, and **9:00**, unlock Lab temporarily or use **`Test notification`** in **Lab → Sim & Demo**:
+     * In **Condition A**, notifications deliver normally.
+     * In **Condition B**, if the participant is in the Elevated tier ($\ge 60$), **Silent Focus Mode** holds alerts without interrupting popups and surfaces one calm **Focus digest** banner when load drops.
 
 ---
 
 ### Phase 3: Closing Session 1 & Mid-Study Assessment (3 Minutes)
-1. **Stop Recording & Save Self-Report in the Journal:**
-   * At the `12:00` mark on the recording timer, **uncheck `Record session`** (or click **`Journal`** directly).
-   * Unchecking `Record session` **automatically opens the Session Journal** in finalize mode (`"Session stopped · set your 0-10 ratings and click Save entry to finalize"`).
-   * Ask the participant to set the two sliders:
-     * **Perceived stress (0–10)**
-     * **Mood (0–10)**
-   * Optionally type a brief note or click **`Reflect with Aura`**, then click **`Save entry`**.
-     > **What happens automatically:** Clicking **`Save entry`** attaches the 0–10 stress/mood ratings and note to the active research session, writes the summary record with `condition="control"` or `"intervention"`, closes the hash-chained `.jsonl` file, and queues it for Firebase Cloud Sync.
-2. **Administer NASA-TLX #1:** Have the participant rate Session 1 across the 6 NASA-TLX dimensions (Mental Demand, Physical Demand, Temporal Demand, Performance, Effort, Frustration).
+1. **Stop Recording & Save Self-Report:**
+   * At the `12:00` mark, open **Lab Console (`Ctrl+Shift+L`) → Study** and click **`Stop Recording`**.
+   * Stopping opens the explicit **Finish Recorded Session** modal:
+     * Set **Perceived stress during this block (0–10)** and **Overall mood (0–10)**.
+     * Optionally type a brief note or click **`Reflect with Aura`**, then click **`Save & Finalize`**.
+     > **What happens automatically:** Clicking **`Save & Finalize`** attaches the 0–10 stress/mood ratings and note to the active session, closes the hash-chained `.jsonl` file with `condition="control"` or `"intervention"`, and queues it for Firebase Cloud Sync. Saving notes earlier in **Wellness → Session Journal** never stops an active recording.
+2. **Administer NASA-TLX #1:** Have the participant rate Session 1 across the 6 NASA-TLX dimensions.
 
 ---
 
 ### Phase 4: Task Session 2 — Counterbalanced Condition (12 Minutes)
-1. **Switch Condition:** Click the **`Mode: Active (B)` / `Mode: Control (A)`** button to switch to the opposite condition.
-2. **Start Recording:** Tick **`Record session`** to open a new session file (`● Rec 00:00`).
+1. **Switch Condition:** In **Lab Console (`Ctrl+Shift+L`) → Study**, unlock Lab and switch to the opposite condition.
+2. **Start Recording:** Click **`Start Recording`** (re-engages Participant Blinded Mode and opens a new session file).
 3. **Run Task 2 (12:00 timer):**
-   * Have the participant complete the second equivalent cognitive task.
-   * Inject the same 3 controlled notifications at **3:00**, **6:00**, and **9:00**.
-   * In **Condition B**, if the physiological sighing prompt (`Take 60s to breathe`) or proactive **Aura AI Check-In** triggers during sustained elevated stress (after 8 seconds in Elevated), allow the participant to interact with the breathing guide or brief reflection.
+   * Have the participant complete the second equivalent cognitive task and inject the same 3 notifications at **3:00**, **6:00**, and **9:00**.
+   * In **Condition B**, after 15 s of sustained Elevated load, Tier-2 escalation gently offers the non-focus-stealing corner **`AmbientNudgePill`** (**20s sigh**, **Check in**, **Snooze 30m**).
 
 ---
 
 ### Phase 5: Closing Session 2 & Post-Study Questionnaires (5 Minutes)
-1. **Stop Recording & Save Self-Report in the Journal:**
-   * At the `12:00` mark, **uncheck `Record session`** (which automatically opens the **Session Journal**).
-   * Have the participant set **Perceived stress (0–10)** and **Mood (0–10)**, optionally add a brief note or click **`Reflect with Aura`**, and click **`Save entry`**.
-2. **Administer NASA-TLX #2:** Complete NASA-TLX for Session 2.
-3. **Administer System Usability Scale (SUS):** Have the participant complete the 10-item SUS questionnaire (1 = Strongly Disagree to 5 = Strongly Agree) evaluating Aura UI.
-4. **Semi-Structured Debrief Interview (3 Questions):**
-   * *Q1 (Ambient Display):* "Did you notice the screen brightness dimming and warming to amber during intense moments? Did it feel calming, unnoticeable, or distracting?"
-   * *Q2 (Notification Gatekeeper):* "How did holding back notifications during high-focus/high-stress periods compare to receiving them immediately?"
-   * *Q3 (Co-Regulation):* "What was your impression of the physiological sighing breathing guide and the post-session Journal reflection?"
+1. **Stop Recording & Save Self-Report:**
+   * At the `12:00` mark, click **`Stop Recording`** in Lab → Study and complete **Finish Recorded Session** (**`Save & Finalize`**).
+2. **Administer NASA-TLX #2** and **System Usability Scale (SUS)**.
+3. **Semi-Structured Debrief Interview (3 Questions):**
+   * *Q1 (Ambient Display):* "Did you notice the screen brightness/warmth or UI atmosphere shifting during intense moments? Did it feel calming, unnoticeable, or distracting?"
+   * *Q2 (Silent Notification Shield):* "How did holding notifications silently until a recovery digest compare to receiving them immediately?"
+   * *Q3 (Co-Regulation & Control):* "What was your impression of the corner breathing/check-in suggestion and post-session wrap-up?"
 
 ---
 
 ## 6. Remote / Field Testing Protocol (Using `AuraUI.exe` + Firebase Sync)
 
-In addition to (or instead of) in-person lab sessions, you can distribute Aura UI to participants' own Windows laptops for longitudinal field testing during real coursework or coding:
+In addition to (or instead of) in-person lab sessions, you can distribute Aura UI to participants' own Windows laptops:
 
 1. **Build the Zero-Setup Executable:**
    ```powershell
-   pip install pyinstaller
-   python -m PyInstaller --onefile --noconsole --name "AuraUI" --add-data "aura_defaults.json;." run.py
+   cd search_ui && npm run build && cd ..
+   python build_exe.py
    ```
 2. **Distribute to Testers:**
    * Send each participant `dist/AuraUI.exe` and [`TESTER_NOTES.md`](TESTER_NOTES.md) along with their assigned code (`P01`, `P02`, etc.).
-   * Testers do **not** need Python or config files—`aura_defaults.json` is compiled in and automatically authenticates anonymously with your `aura-ui-hci` Firestore database.
+   * Testers do **not** need Python or config files—`aura_defaults.json`, `search_ui/dist`, and `search_fixtures/` are compiled into `AuraUI.exe`.
 3. **Participant Field Workflow:**
-   * Participant opens `AuraUI.exe` (clicking *More info → Run anyway* if Windows SmartScreen appears).
-   * Clicks **`Privacy`** $\longrightarrow$ enters their assigned code $\longrightarrow$ clicks **`Save consent`**.
-   * Ticks **`Record session`** while working on an assignment or coding task.
-   * When done, opens **`Journal`** $\longrightarrow$ sets **Perceived stress (0–10)** and **Mood (0–10)** $\longrightarrow$ clicks **`Save entry`**.
-   * The **Cloud sync** indicator turns green (`everything uploaded`), sending the pseudonymized summary and tick array directly to your Firebase Firestore collection (`aura_sessions`).
+   * Opens `AuraUI.exe` → completes the 3-step **Setup** wizard (Consent v4 + 30 s calibration + comfort/theme).
+   * Opens **Lab (`Ctrl+Shift+L`) → Study** → clicks **`Start Recording`** while working.
+   * When done, clicks **`Stop Recording`** → rates **Perceived stress (0–10)** and **Mood (0–10)** → **`Save & Finalize`**.
+   * Uploads pseudonymously to Firebase Firestore (`aura_sessions`).
 
 ---
 
@@ -204,27 +193,21 @@ In addition to (or instead of) in-person lab sessions, you can distribute Aura U
 ## 8. Data Export, Verification & Analysis Playbook
 
 ### 1. Audit Tamper-Evident Hash Chains
-After collecting sessions, verify that all recorded `.jsonl` session files have intact cryptographic hash chains:
+After collecting sessions, verify hash-chain integrity either directly inside **Lab Console (`Ctrl+Shift+L`) → Study → Data Integrity & Export** or from Python:
 ```powershell
 python -c "from backend import research; import json; print(json.dumps(research.audit(), indent=2))"
 ```
 Expected output: `"chain_ok": true, "bad": []`.
 
-### 2. Export All Sessions to Clean CSVs
-Run the built-in exporter to convert all local JSONL sessions into two de-identified CSV files:
+### 2. Export All Sessions to Clean CSVs (or ZIP)
+You can export directly from **Lab Console → Study** (**Export CSVs to Folder** → `exports/<timestamp>/` or **Download ZIP** → `aura_study_export.zip`), or via Python:
 ```powershell
 python -c "from backend import research; print(research.export_dataset('human_pilot_export'))"
 ```
-This creates:
-* **`human_pilot_export/sessions.csv`**: One row per completed session containing:
-  * `session_id`, `pseudonym`, `condition`, `started`, `duration_s`, `ticks`
-  * `score_mean`, `score_peak`, `peak_at_s`
-  * `calm_s`, `mild_s`, `elevated_s` *(seconds spent in each tier)*
-  * `episodes` *(number of times stress entered Elevated)*
-  * `breathing` *(breathing guides triggered)*, `notif_held` *(notifications blocked by Focus Mode)*
-  * `sr_stress` *(0–10 perceived stress)*, `sr_valence` *(0–10 mood)*
-  * `journal_note`, `journal_reflection`
-* **`human_pilot_export/ticks.csv`**: Every 333 ms tick across all sessions with `score`, `tier`, `brightness`, `breathing`, and all 9 whitelisted typing/mouse features.
+This creates six de-identified CSV files:
+* **`sessions.csv`**: One row per completed session (`session_id`, `pseudonym`, `condition`, `started`, `duration_s`, `ticks`, `score_mean`, `score_peak`, `peak_at_s`, `calm_s`, `mild_s`, `elevated_s`, `episodes`, `breathing`, `notif_held`, `sr_stress`, `sr_valence`, `journal_note`, `journal_reflection`).
+* **`ticks.csv`**: Every 333 ms tick across all sessions with `score`, `tier`, `brightness`, `breathing`, and all 9 whitelisted typing/mouse features.
+* **`searches.csv`**, **`search_events.csv`**, **`tasks.csv`**, and **`surveys.csv`**: Search queries/hashes, adaptive policies, proposals/accepts/undos, task timings, and SAM/NASA-TLX/SUS responses.
 
 ### 3. Generate Session Visualization Plots
 To generate high-resolution timeline curves (`aura_session_chart.png`) for your report or poster:

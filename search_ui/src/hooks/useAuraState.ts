@@ -1,13 +1,28 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiGet, TOKEN, wsUrl } from '../api';
-import type { ConnectionStatus, LiveState, StatePayload, StateSnapshot } from '../types';
+import type { AppStatus, ConnectionStatus, LiveState, StatePayload, StateSnapshot } from '../types';
 
-/** Live Aura state: one REST read, then the /ws/state push (2 Hz), reconnecting. */
+/** Live Aura state + unified companion status over WebSocket (2 Hz), reconnecting. */
 export function useAuraState() {
   const [live, setLive] = useState<LiveState | null>(null);
   const [snap, setSnap] = useState<StateSnapshot | null>(null);
+  const [app, setApp] = useState<AppStatus | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>(TOKEN ? 'connecting' : 'unauthorized');
   const retry = useRef<number | undefined>(undefined);
+
+  const applyPayload = useCallback((p: StatePayload) => {
+    if (p.live) setLive(p.live);
+    if (p.state) setSnap(p.state);
+    if (p.app !== undefined && p.app !== null) setApp(p.app);
+  }, []);
+
+  const refreshNow = useCallback(async () => {
+    if (!TOKEN) return;
+    try {
+      const p = await apiGet<StatePayload>('/api/state');
+      applyPayload(p);
+    } catch { /* ignore */ }
+  }, [applyPayload]);
 
   useEffect(() => {
     if (!TOKEN) return;
@@ -15,10 +30,7 @@ export function useAuraState() {
     let closed = false;
 
     apiGet<StatePayload>('/api/state')
-      .then((p) => {
-        if (p.live) setLive(p.live);
-        if (p.state) setSnap(p.state);
-      })
+      .then(applyPayload)
       .catch((e: Error) => {
         if (e.message.startsWith('401')) setStatus('unauthorized');
       });
@@ -27,9 +39,7 @@ export function useAuraState() {
       ws = new WebSocket(wsUrl('/ws/state'));
       ws.onopen = () => setStatus('live');
       ws.onmessage = (ev) => {
-        const p = JSON.parse(ev.data) as StatePayload;
-        if (p.live) setLive(p.live);
-        if (p.state) setSnap(p.state);
+        applyPayload(JSON.parse(ev.data) as StatePayload);
       };
       ws.onclose = (ev) => {
         if (closed) return;
@@ -48,7 +58,7 @@ export function useAuraState() {
       window.clearTimeout(retry.current);
       ws?.close();
     };
-  }, []);
+  }, [applyPayload]);
 
-  return { live, snap, status };
+  return { live, snap, app, setApp, status, refreshNow };
 }

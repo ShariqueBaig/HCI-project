@@ -1,0 +1,9 @@
+pynput
+screen-brightness-control
+pystray
+Pillow
+spotipy
+pycaw; sys_platform == "win32"
+pyinstaller
+fastapi
+uvicorn

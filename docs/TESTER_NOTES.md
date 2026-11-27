@@ -1,72 +1,74 @@
 # Aura UI — Tester notes
 
-Two minutes of setup, then just work normally. No installation, no Python, no config files.
+Two minutes of setup, then just work normally. No installation, no Python, no config files needed when running the packaged exe.
 
 ---
 
 ## 1. Run it
 
-1. Download `AuraUI.exe` anywhere you like (Desktop, Documents — **not** `Program Files`,
-   which is read-only and stops it saving your session).
-2. Double-click it. The first start takes a few seconds while the exe unpacks itself.
+1. Download `AuraUI.exe` anywhere writable (Desktop, Documents — **not** `C:\Program Files`,
+   which is read-only and prevents saving sessions), or run `python run.py` from the repository root.
+2. Double-click `AuraUI.exe` (first launch takes a few seconds while it unpacks). Aura opens a
+   unified window with **Search** and **Wellness** tabs and places a status ring in the system tray.
+   Pressing **`Ctrl+Shift+Space`** brings the window back into focus anytime.
 
 > **"Windows protected your PC" (SmartScreen).**
-> This is expected: the app is not code-signed (that needs a paid certificate). Click
-> **More info → Run anyway**. If your antivirus flags it, that is also typical of
-> single-file Python builds — the full source is in this repo.
+> Expected because the binary is not code-signed. Click **More info → Run anyway**.
 
 Windows 10/11, 64-bit.
 
-## 2. Give consent & calibrate (nothing is recorded without consent)
+## 2. Complete setup & consent (nothing is recorded without consent)
 
-1. In the app, click **Privacy** (small link under the brightness row).
-2. Type the **participant code** your researcher gave you.
-3. Read the text and click **Save consent**.
-4. *(Optional)* Click **Calibrate** to open the 30-second calibration box, type the sample
-   paragraph at your normal relaxed pace, and let it save your baseline rhythm.
+On first launch, the 3-step **Setup & Calibration** wizard opens automatically (you can reopen it
+anytime via the **sliders icon** in the top-right header):
 
-Until you save consent, ticking **Record session** just re-opens the Privacy dialog — by design.
+1. **Step 1 — Privacy & Data Consent (Consent v4):** Enter the **participant code** your researcher
+   gave you, decide whether search query text may be stored (or hashed only), read the consent
+   summary, and click **I Consent · Continue**.
+2. **Step 2 — 30-Second Rhythm Calibration:** Click **Start 30s Calibration** and type the prompt
+   passage at your natural pace. Errors and typing cadence highlight live (with optional soft key
+   sounds) and save your personal typing baseline.
+3. **Step 3 — Ambient Comfort Preferences:** Opt in to Screen Comfort, Focus Mode, Audio Easing, and
+   choose your preferred color theme (**Dark**, **Slate**, **Light**, **Sepia**, or **High Contrast**).
 
-## 3. Record a session
+## 3. Record a study session
 
-- *(If your researcher assigned you a study condition, check that the button next to Calibrate
-  shows **Mode: Active (B)** or **Mode: Control (A)** as instructed.)*
-- Tick **Record session**, then work normally. A live **`● Rec MM:SS`** timer appears on the
-  checkbox and gauge while recording.
-- When you finish: **uncheck `Record session`** (or click **Journal**). The **Journal** window
-  opens automatically → set **Perceived stress (0–10)** and **Mood (0–10)** → click
-  **Save entry**. That finalizes the session and attaches your ratings (plus any note) to it.
-- The **Cloud sync** row tells you where it stands:
-  - green `everything uploaded` — it reached the research database
-  - amber `1 queued for upload` — waiting, will send shortly
-  - red with an error — usually offline; it retries every 5 minutes
-- A note saved *without* ticking Record is still kept, as a "journal-only" entry.
+1. Open the **Researcher Lab Console** by clicking **Lab** in the header (or pressing **`Ctrl+Shift+L`**).
+2. In the **Study** tab, confirm your assigned condition (**Active (B) — State-aware** or
+   **Control (A) — Prompt-only**), if your facilitator asked you to check it.
+3. Click **Start Recording**. Recording starts immediately and locks the Lab Console into
+   **Participant Blinded Mode** so study labels and diagnostics stay hidden while you work.
+4. Work and search normally. If a **Study** task panel appears in Search, click **Start** on a task,
+   click **I'm done** when finished, and submit the short post-task / SUS ratings.
+5. When the recording block ends, press **`Ctrl+Shift+L`** to open **Lab → Study** and click **Stop
+   Recording**. The **Finish Recorded Session** modal opens automatically:
+   - Set **Perceived stress (0–10)** and **Overall mood (0–10)**, optionally add a reflection note,
+     and click **Save & Finalize** (or **Skip ratings** / **Resume recording** if stopped by mistake).
+6. In **Lab → Study**, you can verify **SHA-256 Verified ✓**, export CSVs to a folder, or download
+   `aura_study_export.zip`. Cloud Sync status also shows queued/uploaded status in **Lab → Study**.
 
-## 4. Link Spotify (optional)
+## 4. Wellness, Theme & Soundscapes
 
-1. In the **Music** panel, click **Connect Spotify**.
-2. Your browser opens Spotify's login page — sign in with **your own** account and click
-   **Agree**. Nothing opens until you press that button.
-3. Come back to the app; the panel should say *Connected as <your name>*.
-
-If instead you see *"This Spotify account must be added as a test user"* (HTTP 403), the app
-owner has to add your Spotify email in the Spotify Developer Dashboard → your app →
-**Settings → Users Management**. Development Mode allows **5 testers**, and the owner's
-account needs **Spotify Premium**. Playback controls also need an active Spotify device
-(the phone or desktop app open).
+Open the **Wellness** tab anytime to:
+- Switch themes (**Dark**, **Slate**, **Light**, **Sepia**, **High Contrast**) or toggle Ambient Comfort.
+- Play built-in **Ambient Soundscapes** (**Soft Rain**, **Brown Noise**, **Calm Drone**), adjust
+  volume, or enable auto-play in calmer layout modes.
+- Link **Spotify** (optional; playback controls require an active Spotify device, and dev-mode apps
+  are limited to allowlisted testers—otherwise Aura eases **Windows system volume** automatically).
+- Open the **Physiological Sigh** breathing guide, chat with **Aura Check-in**, or write in **Session
+  Journal** (saving a journal note never stops an active recording).
 
 ## 5. What is and isn't recorded
 
-- **Recorded:** typing speed, timing variability, backspace rate, mouse movement, the stress
-  score/tier over time, your 0–10 ratings, and any note you write.
-- **Never recorded:** the characters you type, key codes, window titles, app names.
-- Your data is stored under a pseudonymous code, not your name.
-- Please don't write anything in the journal you wouldn't want in the research dataset.
-- **Privacy → Withdraw + delete** removes your local files *and* the documents this install
-  uploaded.
+- **Recorded (only while recording):** typing speed, timing variability, backspace rate, dwell time,
+  mouse movement, score/tier over time, search queries (or salted hashes if chosen) and layouts
+  shown, self-report ratings, and any journal note you explicitly save.
+- **Never recorded:** typed characters outside Search, passwords, key codes, window titles, app
+  names, or webcam video frames.
+- **Privacy → Manage data → Withdraw & delete data…** requires explicit confirmation and removes
+  your local session files *and* the Firebase documents this install uploaded.
 
 ## Where it keeps your data
 
-Everything sits beside `AuraUI.exe` in a `data/` folder, plus `settings.json` and
-`journal.json` (or in `%APPDATA%\AuraUI` if that folder isn't writable).
-Deleting the whole folder resets the app completely.
+Everything lives beside `AuraUI.exe` (or `run.py`) in `data/`, `exports/`, `settings.json`, and
+`journal.json` (or `%APPDATA%\AuraUI` if the exe folder is read-only).

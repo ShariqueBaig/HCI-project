@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "aura-search-standalone",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "backend.search.server", "--standalone", "--port", "8766", "--token", "dev"],
+      "port": 8766
+    }
+  ]
+}

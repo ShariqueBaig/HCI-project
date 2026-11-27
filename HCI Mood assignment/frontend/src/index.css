@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --aura-canvas: #F5F7FA;
+  --aura-panel: #FFFFFF;
+  --aura-panel-alt: #EEF2F7;
+  --aura-accent: #2563EB;
+  --aura-accent-soft: #DBEAFE;
+  --aura-text: #0F172A;
+  --aura-muted: #475569;
+  --aura-border: #CBD5E1;
+  --aura-target-scale: 1;
+  --aura-type-scale: 1;
+  --aura-line-height: 1.55;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--aura-canvas);
+  color: var(--aura-text);
+  transition: background-color 350ms ease, color 300ms ease;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Fitts's Law adaptive hit target scaling */
+.aura-target {
+  min-height: calc(36px * var(--aura-target-scale));
+  padding-inline: calc(12px * var(--aura-target-scale));
+  padding-block: calc(6px * var(--aura-target-scale));
+  transition: transform 150ms ease, background-color 200ms ease, border-color 200ms ease;
+}
+
+.aura-readable {
+  font-size: calc(0.95rem * var(--aura-type-scale));
+  line-height: var(--aura-line-height);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,4 +1,3 @@
-// Mirrors backend/search/live_state.py build_snapshot()
 export interface LiveFeatures {
   keys_per_second?: number;
   error_rate?: number;
@@ -18,10 +17,12 @@ export interface LiveState {
   tier: 0 | 1 | 2;
   label: 'Calm' | 'Mild' | 'Elevated';
   features: LiveFeatures;
-  condition: string; // 'intervention' (Active B) | 'control' (Control A)
+  condition: string;
   calibrated: boolean;
   baseline_cov: number;
   baseline_err: number;
+  baseline_kps?: number;
+  baseline_dwell?: number;
   dnd_active: boolean;
   focus_blocking: boolean;
   breathing_active: boolean;
@@ -30,12 +31,14 @@ export interface LiveState {
   demo: boolean;
   recording: boolean;
   brightness: number | null;
+  color_temp?: number;
   session_stats: Record<string, unknown>;
 }
 
 export type HciState = 'focused' | 'overwhelmed' | 'fatigued' | 'energized' | 'disoriented';
+export type ViewPolicyName = HciState | 'neutral';
+export type ThemeId = 'dark' | 'slate' | 'light' | 'sepia' | 'contrast';
 
-// Mirrors backend/search/xai.py explain()
 export interface XaiCondition {
   label: string;
   value: number | boolean | null;
@@ -73,7 +76,6 @@ export interface Xai {
   };
 }
 
-// Mirrors backend/vision/sensor.py explain_detail() + GET /api/camera/explain
 export interface CameraDetail {
   ts: number;
   frame_jpeg_b64: string | null;
@@ -109,7 +111,6 @@ export interface Simulation {
   inputs: Record<string, unknown>;
 }
 
-// Mirrors backend/search/state_fusion.py fuse() + StateTracker
 export interface FusedState {
   xai?: Xai;
   state: HciState;
@@ -126,9 +127,8 @@ export interface FusedState {
   transitions: number;
 }
 
-// Mirrors backend/search/policy.py
 export interface Policy {
-  name: HciState | 'neutral';
+  name: ViewPolicyName;
   label: string;
   summary: string;
   answer_word_budget: number;
@@ -146,7 +146,6 @@ export interface Policy {
   tokens: { targetScale: number; typographyScale: number; lineHeight: number; accent: 'calm' | 'mild' | 'elev' };
 }
 
-// Mirrors backend/search/anticipation.py Anticipator snapshot
 export interface Proposal {
   id: string;
   search_id: string;
@@ -183,13 +182,88 @@ export interface StateSnapshot {
   simulation?: Simulation | null;
 }
 
+export interface AppStatus {
+  comfort: {
+    auto_bright: boolean;
+    focus_mode: boolean;
+    auto_music: boolean;
+    theme: ThemeId;
+    auto_adapt: boolean;
+    view_mode_override: string;
+    onboarding_complete: boolean;
+    brightness: number;
+    color_temp: number;
+    focus_blocking: boolean;
+    held_count: number;
+    delivered_count: number;
+    held_total: number;
+  };
+  audio: {
+    spotify_configured: boolean;
+    spotify_connected: boolean;
+    spotify_status: string;
+    track: { title: string; artist: string; is_playing: boolean; volume: number } | null;
+    volume: number | null;
+    backend: string;
+  };
+  nudge: { id: string; ts: number; score: number; message: string } | null;
+  focus_digest: {
+    id: string;
+    count: number;
+    apps: string[];
+    items: { app: string; text: string; ts: number }[];
+    ts: number;
+  } | null;
+  calibration: {
+    active: boolean;
+    status: 'idle' | 'running' | 'done' | 'insufficient';
+    duration_s: number;
+    remaining_s: number;
+    progress: number;
+    samples: number;
+    message: string;
+    calibrated: boolean;
+    baselines: { cov: number; err: number; kps: number; dwell: number };
+  };
+  recording: {
+    recording: boolean;
+    pending_finalize: boolean;
+    elapsed_s: number;
+    summary: Record<string, unknown>;
+  };
+  consent: {
+    granted: boolean;
+    version?: string;
+    required_version: string;
+    granted_at?: string;
+    store_queries: boolean;
+    participant_code: string;
+    local_sessions: number;
+    cloud_sync_enabled: boolean;
+    cloud_status: string;
+    pending_uploads: number;
+    storage_summary: string;
+    consent_text: string;
+  };
+  study: {
+    condition: 'intervention' | 'control';
+    blinded: boolean;
+    lab_unlocked: boolean;
+  };
+  demo: {
+    active: boolean;
+    status: string;
+    note: string;
+  };
+}
+
 export interface StatePayload {
   live: LiveState | null;
   state: StateSnapshot | null;
+  app?: AppStatus | null;
   server_ts: number;
 }
 
-// Mirrors backend/search/composer.py + validator.py
 export type WidgetType =
   | 'AnswerCard' | 'KeyFactsList' | 'GuidedSteps' | 'ComparisonTable' | 'ProsCons' | 'Timeline'
   | 'SourceList' | 'FacetChips' | 'FollowUpChips' | 'ClarifierChips' | 'QueryTrail'
@@ -225,7 +299,6 @@ export interface Spec {
   };
 }
 
-// Mirrors backend/search/server.py POST /api/search
 export interface SourceItem {
   id: string;
   title: string;
@@ -273,6 +346,18 @@ export interface SearchResponse {
   timings_ms: { retrieval: number; stageA: number; stageB: number; total: number };
 }
 
+export interface StreamStageAPayload {
+  search_id: string;
+  query: string;
+  provider: string;
+  provider_note: string;
+  sources: SourceItem[];
+  stageA: StageA;
+  policy: Policy;
+  adaptive: boolean;
+  timings_ms: { retrieval: number; stageA: number };
+}
+
 export interface RerenderResponse {
   search_id: string;
   policy: Policy;
@@ -287,7 +372,6 @@ export interface FixtureInfo {
   n_sources: number;
 }
 
-// Mirrors backend/search/server.py GET /api/study
 export interface StudyTask {
   id: string;
   task: string;

@@ -1,5 +1,7 @@
 # Aura Search — state-aware generative-UI search (plan)
 
+> **Historical Design Note:** This document captures the initial integration plan (Phases 0–7) when Aura UI used a Tkinter host window (`old_version/`). The current production app at the repository root replaces the Tkinter host with a unified headless daemon + peripheral system tray icon + single-instance React/PyWebView shell (`run.py`, `backend/daemon_controller.py`, `search_ui/`). See [README.md](../README.md) for the current architecture.
+
 ## Context
 
 There are two prototypes in this repository:

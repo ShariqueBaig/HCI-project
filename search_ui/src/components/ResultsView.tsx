@@ -1,38 +1,124 @@
-import { LayoutGrid, Sparkles } from 'lucide-react';
+import { LayoutGrid, Loader2, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { apiPost } from '../api';
-import type { ProposalResponse, RerenderResponse, SearchResponse, Spec, StateSnapshot } from '../types';
+import { VIEW_MODES } from '../modes';
+import type {
+  ProposalResponse,
+  RerenderResponse,
+  SearchResponse,
+  Spec,
+  StateSnapshot,
+  StreamStageAPayload,
+  ThemeId,
+  ViewPolicyName,
+} from '../types';
 import { GenUIRenderer } from './genui/GenUIRenderer';
 import { ProposalBar } from './ProposalBar';
-import { STATE_LABEL } from './StatePill';
 import { ResultsSkeleton } from './SearchResults';
 
 const DEV = new URLSearchParams(window.location.search).get('dev') === '1';
 const COMPARE_ORDER = ['neutral', 'focused', 'overwhelmed', 'fatigued', 'energized', 'disoriented'] as const;
 
-export function ResultsView({ data, snap, onQuery }: {
-  data: SearchResponse;
+export function ResultsView({
+  data,
+  partialStageA,
+  snap,
+  blinded,
+  labUnlocked,
+  theme,
+  checkedStepsMap,
+  onToggleStep,
+  onQuery,
+  onPolicyApplied,
+  onStandardChange,
+}: {
+  data: SearchResponse | null;
+  partialStageA?: StreamStageAPayload | null;
   snap: StateSnapshot | null;
+  blinded: boolean;
+  labUnlocked: boolean;
+  theme: ThemeId;
+  checkedStepsMap: Record<string, number[]>;
+  onToggleStep: (searchId: string, index: number) => void;
   onQuery: (q: string) => void;
+  onPolicyApplied?: (policyName: ViewPolicyName) => void;
+  onStandardChange?: (standard: boolean) => void;
 }) {
-  const adaptive = data.adaptive && data.policy.name !== 'neutral';
   const [standard, setStandard] = useState(false);
   const [standardSpec, setStandardSpec] = useState<Spec | null>(null);
   const [loadingStd, setLoadingStd] = useState(false);
   const [compare, setCompare] = useState<Record<string, Spec> | null>(null);
-  // The adapted layout on screen; accepting an offer (or undoing one) replaces it.
-  const [adapted, setAdapted] = useState<{ spec: Spec; policy: string }>({ spec: data.spec, policy: data.policy.name });
+  const [adapted, setAdapted] = useState<{ spec: Spec; policy: string } | null>(
+    data ? { spec: data.spec, policy: data.policy.name } : null,
+  );
   const [busy, setBusy] = useState(false);
+  const [proposalErr, setProposalErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    onStandardChange?.(standard);
+  }, [standard, onStandardChange]);
+
+  useEffect(() => () => {
+    onStandardChange?.(false);
+  }, [onStandardChange]);
 
   useEffect(() => {
     setStandard(false);
     setStandardSpec(null);
     setCompare(null);
-    setAdapted({ spec: data.spec, policy: data.policy.name });
-  }, [data.search_id, data.spec, data.policy.name]);
+    setProposalErr(null);
+    if (data) {
+      setAdapted({ spec: data.spec, policy: data.policy.name });
+    } else {
+      setAdapted(null);
+    }
+  }, [data?.search_id, data?.spec, data?.policy.name]);
+
+  // Progressive preview while Stage B is still composing
+  if (!data && partialStageA) {
+    const partialMood = (partialStageA.policy?.name as ViewPolicyName) || 'neutral';
+    return (
+      <div className="aura-fade-up flex flex-col gap-5" aria-busy="true">
+        <div className="rounded-xl border p-5" style={{ borderColor: 'var(--aura-calm)', background: 'var(--aura-surface)' }}>
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium" style={{ color: 'var(--aura-calm)' }}>
+            <Loader2 size={13} className="aura-spin" aria-hidden /> Cited facts ready · tailoring layout…
+          </div>
+          <p className="aura-readable text-[1.05rem]">{partialStageA.stageA.tldr}</p>
+        </div>
+        {partialStageA.sources.length > 0 && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {partialStageA.sources.slice(0, 4).map((s) => (
+              <div key={s.id} className="aura-fade-in rounded-lg border px-3 py-2 text-xs" style={{ borderColor: 'var(--aura-border)', background: 'var(--aura-surface)' }}>
+                <span className="font-medium">{s.title}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <ResultsSkeleton
+          compact
+          stage="composing"
+          message="Assembling tailored layout…"
+          mood={partialMood}
+        />
+      </div>
+    );
+  }
+
+  if (!data || !adapted) return null;
+
+  if (!data.stageA.claims.length) {
+    return (
+      <p className="text-sm" style={{ color: 'var(--aura-muted)' }}>
+        No results found for “{data.query}”. Try different words.
+      </p>
+    );
+  }
+
+  const adaptive = data.adaptive && data.policy.name !== 'neutral';
 
   const answer = async (action: 'accept' | 'dismiss' | 'undo', proposalId?: string) => {
     setBusy(true);
+    setProposalErr(null);
     try {
       const r = await apiPost<ProposalResponse>(`/api/search/${data.search_id}/proposal`, {
         proposal_id: proposalId ?? '',
@@ -41,9 +127,10 @@ export function ResultsView({ data, snap, onQuery }: {
       if (r.spec && r.policy) {
         setAdapted({ spec: r.spec, policy: r.policy.name });
         setStandard(false);
+        onPolicyApplied?.(r.policy.name);
       }
-    } catch {
-      /* offer expired or was superseded; the next state push clears the bar */
+    } catch (e) {
+      setProposalErr((e as Error).message || 'Could not update layout.');
     } finally {
       setBusy(false);
     }
@@ -73,34 +160,30 @@ export function ResultsView({ data, snap, onQuery }: {
     setCompare(r.specs);
   };
 
-  if (!data.stageA.claims.length) {
-    return (
-      <p className="text-sm" style={{ color: 'var(--aura-muted)' }}>
-        No results found for “{data.query}”. Try different words.
-      </p>
-    );
-  }
-
   const spec = standard ? standardSpec : adapted.spec;
   const a = data.stageA;
+  const activeModeMeta = VIEW_MODES[(adapted.policy as ViewPolicyName)] ?? VIEW_MODES.neutral;
+  const checkedSet = new Set(checkedStepsMap[data.search_id] ?? []);
+
   return (
-    <div className="flex flex-col gap-5">
-      {adaptive && (
+    <div
+      key={`${data.search_id}-${adapted.policy}-${standard ? 'std' : 'adp'}`}
+      className="aura-fade-up flex flex-col gap-5"
+    >
+      {adaptive && !blinded && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className="flex items-center gap-2" style={{ color: 'var(--aura-muted)' }}>
             {standard ? <LayoutGrid size={15} aria-hidden /> : <Sparkles size={15} aria-hidden />}
-            {standard
-              ? 'Standard layout (same for everyone)'
-              : `Laid out for: ${STATE_LABEL[adapted.policy as keyof typeof STATE_LABEL] ?? data.policy.label}`}
+            {standard ? 'Standard View' : `${activeModeMeta.name}`}
           </span>
           <button
             type="button"
             onClick={toggleStandard}
             aria-pressed={standard}
             className="aura-target rounded-lg border text-sm hover:border-[var(--aura-calm)]"
-            style={{ borderColor: 'var(--aura-border)' }}
+            style={{ borderColor: 'var(--aura-border-interactive)', background: 'var(--aura-surface)' }}
           >
-            {standard ? 'Back to adapted view' : 'Standard view'}
+            {standard ? 'Back to tailored view' : 'Standard view'}
           </button>
         </div>
       )}
@@ -108,23 +191,53 @@ export function ResultsView({ data, snap, onQuery }: {
       {adaptive && !standard && (
         <ProposalBar antic={snap?.anticipation} searchId={data.search_id} busy={busy} onAnswer={answer} />
       )}
+      {proposalErr && (
+        <p role="status" className="text-xs" style={{ color: 'var(--aura-elev)' }}>
+          {proposalErr}
+        </p>
+      )}
 
-      {loadingStd || !spec ? <ResultsSkeleton /> : <GenUIRenderer data={data} spec={spec} onQuery={onQuery} />}
+      {loadingStd || !spec ? (
+        <ResultsSkeleton
+          compact
+          stage="composing"
+          message="Loading Standard View…"
+          mood="neutral"
+        />
+      ) : (
+        <GenUIRenderer
+          data={data}
+          spec={spec}
+          theme={theme}
+          checkedSteps={checkedSet}
+          onToggleStep={(idx) => onToggleStep(data.search_id, idx)}
+          onQuery={onQuery}
+        />
+      )}
 
-      <footer className="text-xs" style={{ color: 'var(--aura-muted)' }}>
-        {sourceLabel(data.provider)} · facts by {a.used_llm ? a.model : 'extractive fallback'}
-        {spec && ` · layout by ${spec.source === 'llm' ? spec.model : 'template'}`}
-        {' · '}
-        {(data.timings_ms.total / 1000).toFixed(1)} s
-        {spec?.report?.ungrounded_before_fix ? ` · ${spec.report.ungrounded_before_fix} unsupported phrase(s) removed` : ''}
-        {[data.provider_note, a.note, spec?.note].filter(Boolean).length > 0 && (
-          <span className="block pt-1">{[data.provider_note, a.note, spec?.note].filter(Boolean).join(' · ')}</span>
-        )}
-      </footer>
+      {/* Only show technical model/timing telemetry when Lab Mode is unlocked and NOT blinded */}
+      {!blinded && labUnlocked ? (
+        <footer className="text-xs" style={{ color: 'var(--aura-subtle)' }}>
+          {sourceLabel(data.provider)} · facts by {a.used_llm ? a.model : 'extractive fallback'}
+          {spec && ` · layout by ${spec.source === 'llm' ? spec.model : 'template'}`}
+          {' · '}
+          {(data.timings_ms.total / 1000).toFixed(1)} s
+          {spec?.report?.ungrounded_before_fix ? ` · ${spec.report.ungrounded_before_fix} unsupported phrase(s) removed` : ''}
+        </footer>
+      ) : (
+        <footer className="text-xs" style={{ color: 'var(--aura-subtle)' }}>
+          {sourceLabel(data.provider)} · {(data.timings_ms.total / 1000).toFixed(1)} s
+        </footer>
+      )}
 
-      {DEV && (
+      {DEV && !blinded && labUnlocked && (
         <section className="border-t pt-4" style={{ borderColor: 'var(--aura-border)' }}>
-          <button type="button" onClick={loadCompare} className="aura-target rounded-lg border text-sm" style={{ borderColor: 'var(--aura-border)' }}>
+          <button
+            type="button"
+            onClick={loadCompare}
+            className="aura-target rounded-lg border text-sm"
+            style={{ borderColor: 'var(--aura-border-interactive)' }}
+          >
             Compare this search across all states (dev)
           </button>
           {compare && (
@@ -132,10 +245,10 @@ export function ResultsView({ data, snap, onQuery }: {
               {COMPARE_ORDER.map((n) => compare[n] && (
                 <div key={n} className="rounded-xl border p-3" style={{ borderColor: 'var(--aura-border)' }}>
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--aura-calm)' }}>
-                    {n === 'neutral' ? 'Standard (prompt-only)' : STATE_LABEL[n]} · {compare[n].topology} · {compare[n].source}
+                    {VIEW_MODES[n].name} · {compare[n].topology} · {compare[n].source}
                   </div>
                   <div className="max-h-[28rem] overflow-auto text-[0.85em]">
-                    <GenUIRenderer data={data} spec={compare[n]} onQuery={onQuery} />
+                    <GenUIRenderer data={data} spec={compare[n]} theme={theme} onQuery={onQuery} />
                   </div>
                 </div>
               ))}
@@ -148,5 +261,5 @@ export function ResultsView({ data, snap, onQuery }: {
 }
 
 function sourceLabel(p: string) {
-  return p === 'tavily' ? 'Web results (Tavily)' : p === 'wikipedia' ? 'Wikipedia results' : p === 'fixture' ? 'Recorded study results' : p;
+  return p === 'tavily' ? 'Web results' : p === 'wikipedia' ? 'Wikipedia' : p === 'fixture' ? 'Study sources' : p;
 }

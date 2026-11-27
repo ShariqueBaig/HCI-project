@@ -1,12 +1,11 @@
-import { ExternalLink, Pause, Play, Volume2 } from 'lucide-react';
-import { createContext, useContext, useEffect, useState } from 'react';
-import type { Claim, SourceItem, StageA } from '../../types';
-
-/* Facts reach widgets only by reference (claim ids, step indices, source ids)
-   and are rendered from Stage A's own wording -- the layout can change, the
-   facts cannot (backend/search/validator.py). */
+import { Compass, ExternalLink, Pause, Play, Sparkles, Volume2 } from 'lucide-react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import type { Claim, SourceItem, StageA, ViewPolicyName } from '../../types';
+import { UnifiedBreathing } from '../UnifiedBreathing';
 
 export interface GenCtx {
+  searchId: string;
+  policyName: ViewPolicyName;
   stageA: StageA;
   claims: Record<string, Claim>;
   sources: Record<string, SourceItem>;
@@ -15,6 +14,8 @@ export interface GenCtx {
   onCite: (sourceId: string) => void;
   onQuery: (q: string) => void;
   answerText: string;
+  checkedSteps: Set<number>;
+  onToggleStep: (index: number) => void;
 }
 
 export const Ctx = createContext<GenCtx | null>(null);
@@ -39,7 +40,7 @@ function domain(url: string) {
   }
 }
 
-/** Citation chips: claim ids -> the sources those claims cite, numbered like the source list. */
+/** Accessible citation chips (>=24x24px) with inline hover/focus preview popover. */
 export function Cites({ claimIds = [], sourceIds = [] }: { claimIds?: string[]; sourceIds?: string[] }) {
   const g = useGen();
   const ids = Array.from(new Set([...sourceIds, ...claimIds.flatMap((c) => g.claims[c]?.source_ids ?? [])]))
@@ -47,26 +48,148 @@ export function Cites({ claimIds = [], sourceIds = [] }: { claimIds?: string[]; 
     .sort((a, b) => g.sourceOrder.indexOf(a) - g.sourceOrder.indexOf(b));
   if (!ids.length) return null;
   return (
-    <span className="ml-1 inline-flex gap-1 align-baseline">
+    <span className="ml-1.5 inline-flex flex-wrap gap-1 align-middle">
       {ids.map((id) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => g.onCite(id)}
-          className="rounded px-1.5 text-[11px] font-medium tabular-nums hover:brightness-125"
-          style={{ background: 'var(--aura-faint)', color: 'var(--aura-text)' }}
-          aria-label={`Show source ${id.slice(1)}`}
-        >
-          {id.slice(1)}
-        </button>
+        <CiteBadge key={id} id={id} source={g.sources[id]} onJump={() => g.onCite(id)} />
       ))}
     </span>
   );
 }
 
-export function AnswerCard({ text, claim_ids, source_ids }: { text: string; claim_ids: string[]; source_ids: string[] }) {
+function CiteBadge({ id, source, onJump }: { id: string; source: SourceItem; onJump: () => void }) {
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<number | undefined>(undefined);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+
+  const show = () => {
+    window.clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const hideSoon = () => {
+    window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setOpen(false), 120);
+  };
+
+  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
-    <section aria-label="Answer" className="rounded-xl border p-5" style={card}>
+    <span
+      ref={wrapRef}
+      className="relative inline-block"
+      onMouseEnter={show}
+      onMouseLeave={hideSoon}
+      onFocus={show}
+      onBlur={(e) => {
+        if (!wrapRef.current?.contains(e.relatedTarget as Node)) hideSoon();
+      }}
+    >
+      <button
+        type="button"
+        onClick={onJump}
+        aria-expanded={open}
+        className="aura-cite-target inline-flex items-center justify-center rounded border text-xs font-semibold tabular-nums transition-colors duration-150 hover:border-[var(--aura-calm)]"
+        style={{
+          borderColor: open ? 'var(--aura-calm)' : 'var(--aura-border-interactive)',
+          background: open ? 'var(--aura-accent-soft)' : 'var(--aura-surface-elev)',
+          color: 'var(--aura-text)',
+        }}
+        aria-label={`Source ${id.slice(1)}: ${source.title}`}
+      >
+        {id.slice(1)}
+      </button>
+
+      {open && (
+        <span
+          role="dialog"
+          aria-label={`Citation ${id.slice(1)} preview`}
+          className="aura-scale-in origin-bottom-left absolute bottom-full left-0 z-30 mb-2 block w-72 rounded-xl border p-3 text-left text-xs shadow-2xl sm:w-80"
+          style={{
+            borderColor: 'var(--aura-border-interactive)',
+            background: 'var(--aura-surface)',
+            color: 'var(--aura-text)',
+          }}
+        >
+          <span className="block font-semibold" style={{ color: 'var(--aura-calm)' }}>
+            [{id.slice(1)}] {domain(source.url)}
+          </span>
+          <span className="mt-0.5 block font-semibold leading-snug">{source.title}</span>
+          {source.snippet && (
+            <span className="mt-1 line-clamp-3 block leading-relaxed" style={{ color: 'var(--aura-muted)' }}>
+              {source.snippet}
+            </span>
+          )}
+          <span className="mt-2.5 flex items-center justify-between gap-2 border-t pt-2" style={{ borderColor: 'var(--aura-border)' }}>
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-source-link
+              className="inline-flex items-center gap-1 font-medium underline underline-offset-2"
+              style={{ color: 'var(--aura-calm)' }}
+            >
+              Open source <ExternalLink size={11} aria-hidden />
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onJump();
+              }}
+              className="rounded px-2 py-1 text-[11px] hover:bg-[var(--aura-surface-elev)]"
+              style={{ color: 'var(--aura-muted)' }}
+            >
+              View in list ↓
+            </button>
+          </span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function AnswerCard({ text, claim_ids, source_ids }: { text: string; claim_ids: string[]; source_ids: string[] }) {
+  const g = useGen();
+  const p = g.policyName;
+  const isOverwhelmed = p === 'overwhelmed';
+  const isFatigued = p === 'fatigued';
+  const isEnergized = p === 'energized';
+  const isDisoriented = p === 'disoriented';
+
+  const eyebrow = isOverwhelmed
+    ? 'Start here · 1 clear takeaway'
+    : isFatigued
+    ? 'Easy-read summary'
+    : isEnergized
+    ? 'Explore & compare'
+    : isDisoriented
+    ? 'Quick summary'
+    : null;
+
+  return (
+    <section
+      aria-label="Answer"
+      className={`rounded-xl border transition-colors ${isOverwhelmed || isFatigued ? 'p-6' : 'p-5'} ${isOverwhelmed ? 'border-l-4' : ''}`}
+      style={{
+        borderColor: isOverwhelmed || isEnergized ? 'var(--aura-calm)' : 'var(--aura-border)',
+        background: isOverwhelmed || isFatigued ? 'var(--aura-accent-soft)' : 'var(--aura-surface)',
+        borderTopWidth: isEnergized ? '3px' : undefined,
+      }}
+    >
+      {eyebrow && (
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--aura-calm)' }}>
+          {isEnergized && <Sparkles size={12} aria-hidden />}
+          {eyebrow}
+        </p>
+      )}
       <p className="aura-readable text-[1.05rem]">
         {text}
         <Cites claimIds={claim_ids} sourceIds={source_ids} />
@@ -80,15 +203,15 @@ export function KeyFactsList({ claim_ids, title }: { claim_ids: string[]; title?
   return (
     <section aria-label={title || 'Key facts'}>
       <Heading>{title || 'Key facts'}</Heading>
-      <ul className="aura-readable space-y-2">
+      <ul className="aura-readable space-y-2.5">
         {claim_ids.map((id) => {
           const c = g.claims[id];
           if (!c) return null;
           return (
             <li key={id} className="flex gap-3">
               <span
-                className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: c.importance === 3 ? 'var(--aura-calm)' : 'var(--aura-faint)' }}
+                className="mt-2.5 h-2 w-2 shrink-0 rounded-full"
+                style={{ background: c.importance === 3 ? 'var(--aura-calm)' : 'var(--aura-subtle)' }}
                 aria-hidden
               />
               <span>
@@ -108,16 +231,15 @@ export function GuidedSteps({ steps, title, kind }: {
   title?: string;
   kind?: 'steps' | 'facts';
 }) {
-  const [done, setDone] = useState<Set<number>>(new Set());
+  const g = useGen();
   if (kind === 'facts') {
-    // not a how-to query: these are the key facts, so nothing to tick off
     return (
       <section aria-label={title || 'Key points'}>
         <Heading>{title || 'Key points'}</Heading>
         <ol className="aura-readable space-y-2">
           {steps.map((s, i) => (
-            <li key={i} className="flex items-start gap-3 rounded-lg border px-3 py-2" style={card}>
-              <span className="tabular-nums" style={muted}>{i + 1}.</span>
+            <li key={i} className="flex items-start gap-3 rounded-lg border px-3 py-2.5" style={card}>
+              <span className="tabular-nums font-medium" style={muted}>{i + 1}.</span>
               <span>
                 {s.text}
                 <Cites claimIds={s.claim_ids} />
@@ -128,34 +250,33 @@ export function GuidedSteps({ steps, title, kind }: {
       </section>
     );
   }
-  const toggle = (i: number) =>
-    setDone((d) => {
-      const n = new Set(d);
-      if (n.has(i)) n.delete(i);
-      else n.add(i);
-      return n;
-    });
   return (
     <section aria-label={title || 'Steps'}>
       <Heading>{title || 'Steps'}</Heading>
       <ol className="aura-readable space-y-2">
-        {steps.map((s, i) => (
-          <li key={i}>
-            <label className="aura-target flex cursor-pointer items-start gap-3 rounded-lg border" style={card}>
-              <input
-                type="checkbox"
-                checked={done.has(i)}
-                onChange={() => toggle(i)}
-                className="mt-[0.45em] h-4 w-4 shrink-0 accent-[var(--aura-calm)]"
-              />
-              <span className="py-1.5" style={done.has(i) ? { ...muted, textDecoration: 'line-through' } : undefined}>
-                <span className="mr-1 tabular-nums" style={muted}>{i + 1}.</span>
-                {s.text}
-                <Cites claimIds={s.claim_ids} />
-              </span>
-            </label>
-          </li>
-        ))}
+        {steps.map((s, i) => {
+          const isDone = g.checkedSteps.has(i);
+          return (
+            <li key={i}>
+              <label
+                className="aura-target flex cursor-pointer items-start gap-3 rounded-lg border py-1.5"
+                style={{ ...card, borderColor: 'var(--aura-border-interactive)' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isDone}
+                  onChange={() => g.onToggleStep(i)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--aura-calm)]"
+                />
+                <span style={isDone ? { ...muted, textDecoration: 'line-through' } : undefined}>
+                  <span className="mr-1 tabular-nums" style={muted}>{i + 1}.</span>
+                  {s.text}
+                  <Cites claimIds={s.claim_ids} />
+                </span>
+              </label>
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
@@ -173,7 +294,7 @@ export function ComparisonTable({ columns, rows, claim_ids }: {
       </Heading>
       <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--aura-border)' }}>
         <table className="aura-readable w-full text-left text-sm">
-          <thead style={{ background: 'var(--aura-surface)' }}>
+          <thead style={{ background: 'var(--aura-accent-soft)' }}>
             <tr>
               <th className="px-3 py-2 font-medium" style={muted} scope="col" />
               {columns.map((c) => (
@@ -267,7 +388,7 @@ export function SourceList({ source_ids, compact }: { source_ids: string[]; comp
   );
 }
 
-function Chips({ items, onPick, label }: { items: string[]; onPick?: (s: string) => void; label: string }) {
+function Chips({ items, onPick, label, accent = false }: { items: string[]; onPick?: (s: string) => void; label: string; accent?: boolean }) {
   return (
     <div className="flex flex-wrap gap-2" role="list" aria-label={label}>
       {items.map((f) => (
@@ -276,8 +397,12 @@ function Chips({ items, onPick, label }: { items: string[]; onPick?: (s: string)
           type="button"
           role="listitem"
           onClick={() => onPick?.(f)}
-          className="aura-target rounded-full border text-sm hover:border-[var(--aura-calm)]"
-          style={{ borderColor: 'var(--aura-border)', color: 'var(--aura-text)' }}
+          className="aura-target rounded-full border text-sm transition-colors duration-150 hover:border-[var(--aura-calm)]"
+          style={{
+            borderColor: accent ? 'var(--aura-calm)' : 'var(--aura-border-interactive)',
+            color: 'var(--aura-text)',
+            background: accent ? 'var(--aura-accent-soft)' : 'var(--aura-surface)',
+          }}
         >
           {f}
         </button>
@@ -291,7 +416,7 @@ export function FacetChips({ facets }: { facets: string[] }) {
   return (
     <section aria-label="Explore by">
       <Heading>Explore by</Heading>
-      <Chips items={facets} label="Facets" onPick={(f) => g.onQuery(`${g.stageA.key_entities[0] ?? ''} ${f}`.trim())} />
+      <Chips items={facets} label="Facets" accent onPick={(f) => g.onQuery(`${g.stageA.key_entities[0] ?? ''} ${f}`.trim())} />
     </section>
   );
 }
@@ -320,15 +445,20 @@ export function QueryTrail({ queries }: { queries: string[] }) {
   const g = useGen();
   if (!queries.length) return null;
   return (
-    <nav aria-label="Your recent searches" className="text-sm">
-      <span style={muted}>Where you are: </span>
+    <nav
+      aria-label="Your recent searches"
+      className="flex flex-wrap items-center gap-1.5 rounded-xl border px-4 py-3 text-sm"
+      style={{ borderColor: 'var(--aura-calm)', background: 'var(--aura-accent-soft)' }}
+    >
+      <Compass size={15} style={{ color: 'var(--aura-calm)' }} aria-hidden />
+      <span className="font-medium" style={{ color: 'var(--aura-calm)' }}>Where you left off:</span>
       {queries.map((q, i) => (
         <span key={i}>
           {i > 0 && <span style={muted}> › </span>}
           {i === queries.length - 1 ? (
-            <span className="font-medium">{q}</span>
+            <span className="font-semibold">{q}</span>
           ) : (
-            <button type="button" className="underline-offset-2 hover:underline" style={muted} onClick={() => g.onQuery(q)}>
+            <button type="button" className="underline underline-offset-2 hover:opacity-80" style={muted} onClick={() => g.onQuery(q)}>
               {q}
             </button>
           )}
@@ -338,41 +468,8 @@ export function QueryTrail({ queries }: { queries: string[] }) {
   );
 }
 
-/** One physiological sigh (inhale, top-up, long exhale), offered, never forced. */
 export function BreathingNudge() {
-  const [phase, setPhase] = useState<'idle' | 'in' | 'top' | 'out'>('idle');
-  useEffect(() => {
-    if (phase === 'idle') return;
-    const next = { in: ['top', 1500], top: ['out', 500], out: ['idle', 6000] } as const;
-    const [to, ms] = next[phase];
-    const t = window.setTimeout(() => setPhase(to), ms);
-    return () => window.clearTimeout(t);
-  }, [phase]);
-  const scale = phase === 'in' ? 1 : phase === 'top' ? 1.12 : 0.55;
-  const dur = phase === 'in' ? 1500 : phase === 'top' ? 500 : 6000;
-  return (
-    <section aria-label="Breathing pause" className="flex items-center gap-4 rounded-xl border p-4" style={card}>
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center" aria-hidden>
-        <div
-          className="h-12 w-12 rounded-full"
-          style={{
-            background: 'var(--aura-calm)',
-            opacity: 0.35,
-            transform: `scale(${phase === 'idle' ? 0.55 : scale})`,
-            transition: `transform ${dur}ms ease-in-out`,
-          }}
-        />
-      </div>
-      <div className="flex-1 text-sm">
-        <p>{phase === 'idle' ? 'One slow breath before you decide?' : phase === 'out' ? 'Long breath out…' : 'Breathe in…'}</p>
-      </div>
-      {phase === 'idle' && (
-        <button type="button" onClick={() => setPhase('in')} className="aura-target rounded-lg border text-sm" style={{ borderColor: 'var(--aura-border)' }}>
-          Start
-        </button>
-      )}
-    </section>
-  );
+  return <UnifiedBreathing inline defaultCycles={1} />;
 }
 
 export function ReadAloud() {
@@ -393,16 +490,21 @@ export function ReadAloud() {
     window.speechSynthesis.speak(u);
     setSpeaking(true);
   };
+  const isFatigued = g.policyName === 'fatigued';
   return (
     <button
       type="button"
       onClick={toggle}
-      className="aura-target flex w-fit items-center gap-2 rounded-lg border text-sm"
-      style={{ borderColor: 'var(--aura-border)' }}
+      className={`aura-target flex items-center gap-2.5 rounded-xl border text-sm font-medium hover:brightness-110 ${isFatigued ? 'w-full justify-center py-3' : 'w-fit'}`}
+      style={{
+        borderColor: 'var(--aura-calm)',
+        background: isFatigued ? 'var(--aura-accent-soft)' : 'var(--aura-surface)',
+        color: isFatigued ? 'var(--aura-text)' : 'var(--aura-calm)',
+      }}
     >
       {speaking ? <Pause size={16} aria-hidden /> : <Play size={16} aria-hidden />}
       <Volume2 size={16} aria-hidden />
-      {speaking ? 'Stop reading' : 'Read the answer aloud'}
+      {speaking ? 'Stop reading' : 'Listen to the answer (Read aloud)'}
     </button>
   );
 }

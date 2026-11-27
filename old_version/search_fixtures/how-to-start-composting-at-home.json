@@ -1,0 +1,53 @@
+{
+  "query": "how to start composting at home",
+  "task": "How-to: list the steps to begin composting",
+  "recorded_at": "2026-11-25",
+  "recorded_provider": "wikipedia",
+  "sources": [
+    {
+      "id": "s1",
+      "title": "Home composting",
+      "url": "https://en.wikipedia.org/wiki/Home_composting",
+      "snippet": "Home composting is the process of using household waste to make compost at home. Composting is the biological decomposition of organic waste by recycling food and other organic materials into compost. Home composting can be practiced within households for various environmental advantages, such as increasing soil fertility, reduce landfill and methane contribution, and limit food waste.",
+      "content": "Home composting is the process of using household waste to make compost at home. Composting is the biological decomposition of organic waste by recycling food and other organic materials into compost. Home composting can be practiced within households for various environmental advantages, such as increasing soil fertility, reduce landfill and methane contribution, and limit food waste.",
+      "published": "",
+      "provider": "wikipedia"
+    },
+    {
+      "id": "s2",
+      "title": "Vermicompost",
+      "url": "https://en.wikipedia.org/wiki/Vermicompost",
+      "snippet": "Vermicompost (vermi-compost) is the product of the decomposition process using various species of worms, usually red wigglers, white worms, and other earthworms, to create a mixture of decomposing vegetable or food waste, bedding materials, and vermicast. This process is called vermicomposting, with the rearing of worms for this purpose is called vermiculture. Vermicast (also called worm ...",
+      "content": "Vermicompost (vermi-compost) is the product of the decomposition process using various species of worms, usually red wigglers, white worms, and other earthworms, to create a mixture of decomposing vegetable or food waste, bedding materials, and vermicast. This process is called vermicomposting, with the rearing of worms for this purpose is called vermiculture. Vermicast (also called worm castings, worm humus, worm poop, worm manure, or worm faeces) is the end-product of the breakdown of organic matter by earthworms. These excreta have been shown to contain reduced levels of contaminants and a higher saturation of nutrients than the organic materials before vermicomposting. Vermicompost contains water-soluble nutrients which may be extracted as vermiwash and is an excellent, nutrient-rich organic fertilizer and soil conditioner. It is used in gardening and sustainable, organic farming. Vermicomposting can also be applied for treatment of sewage. A variation of the process is vermifiltration (or vermidigestion) which is used to remove organic matter, pathogens, and oxygen demand from wastewater or directly from blackwater of flush toilets.",
+      "published": "",
+      "provider": "wikipedia"
+    },
+    {
+      "id": "s3",
+      "title": "Human composting",
+      "url": "https://en.wikipedia.org/wiki/Human_composting",
+      "snippet": "Human composting (called natural organic reduction or terramation in legal codes and regulations) is a process for the final disposition of human remains in which microbes and organic material convert a deceased body into compost. Developed in the early 21st century as an environmentally sustainable alternative to burial and cremation, human composting is legally sanctioned in several US states ...",
+      "content": "Human composting (called natural organic reduction or terramation in legal codes and regulations) is a process for the final disposition of human remains in which microbes and organic material convert a deceased body into compost. Developed in the early 21st century as an environmentally sustainable alternative to burial and cremation, human composting is legally sanctioned in several US states and Sweden. Human composting has prompted much debate around environmental impacts, legalization, and religious considerations.",
+      "published": "",
+      "provider": "wikipedia"
+    },
+    {
+      "id": "s4",
+      "title": "Compost",
+      "url": "https://en.wikipedia.org/wiki/Compost",
+      "snippet": "Compost is a mixture of ingredients used as plant fertilizer and to improve soil's physical, chemical, and biological properties. It is commonly prepared by decomposing plant and food waste, recycling organic materials, and manure. The resulting mixture is rich in plant nutrients and beneficial organisms, such as bacteria, protozoa, nematodes, and fungi. Compost improves soil fertility in ...",
+      "content": "Compost is a mixture of ingredients used as plant fertilizer and to improve soil's physical, chemical, and biological properties. It is commonly prepared by decomposing plant and food waste, recycling organic materials, and manure. The resulting mixture is rich in plant nutrients and beneficial organisms, such as bacteria, protozoa, nematodes, and fungi. Compost improves soil fertility in gardens, landscaping, horticulture, urban agriculture, and organic farming, reducing dependency on commercial chemical fertilizers. The benefits of compost include providing nutrients to crops as fertilizer, acting as a soil conditioner, increasing the humus or humic acid contents of the soil, and introducing beneficial microbes that help to suppress pathogens in the soil and reduce soil-borne diseases. At the most basic level, composting requires gathering a mix of green waste (nitrogen-rich materials such as leaves, grass, and food scraps) and brown waste (woody materials rich in carbon, such as stalks, paper, and wood chips). The materials break down into humus in a process taking months. Composting can be a multistep, closely monitored process with measured inputs of water, air, and carbon- and nitrogen-rich materials. The decomposition process is aided by shredding the plant matter, adding water, and ensuring proper aeration by regularly turning the mixture in a process using open piles or windrows. Fungi, earthworms, and other detritivores further break up the organic material. Aerobic bacteria and fungi manage the chemical process by converting the inputs into heat, carbon dioxide, and ammonium ions. Composting is an important part of waste management, since food and other compostable materials make up about 20% of waste in landfills, and due to anaerobic conditions, these materials take longer to biodegrade in the landfill. Composting offers an environmentally superior alternative to using organic material for landfill because composting reduces methane emissions due to anaerobic conditions, and provides economic and environmental co-benefits. For example, compost can also be used for land and stream reclamation, wetland construction, and landfill cover.",
+      "published": "",
+      "provider": "wikipedia"
+    },
+    {
+      "id": "s5",
+      "title": "Bokashi (horticulture)",
+      "url": "https://en.wikipedia.org/wiki/Bokashi_(horticulture)",
+      "snippet": "Bokashi (also referred to as bokashi composting, bokashi fermentation and fermented composting) is an anaerobic composting method that converts food waste and organic matter into a soil amendment using specialized bran. The result of this process is similar in many ways to traditional compost. The nature of bokashi reduces risk of nutrient leaching, and does not emit the greenhouse gas nor heat ...",
+      "content": "Bokashi (also referred to as bokashi composting, bokashi fermentation and fermented composting) is an anaerobic composting method that converts food waste and organic matter into a soil amendment using specialized bran. The result of this process is similar in many ways to traditional compost. The nature of bokashi reduces risk of nutrient leaching, and does not emit the greenhouse gas nor heat typically released by traditional hot compost methods. These factors make it appealing for urban agriculturists, as it can be easily done inside a home or apartment in manageable quantities without odor. Bokashi composting originated in Korea, and has spread widely around the globe, particularly in dense urban areas of eastern Asia, where it is viewed as a way to reduce waste and promote healthy cities.",
+      "published": "",
+      "provider": "wikipedia"
+    }
+  ]
+}

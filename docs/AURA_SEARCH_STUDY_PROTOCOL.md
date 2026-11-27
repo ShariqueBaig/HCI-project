@@ -17,8 +17,8 @@ here is produced by the current code.
 ## 2. Design
 
 - **Within-subjects** design with two conditions, counterbalanced:
-  - **C1, prompt-only:** Aura's **Mode: Control (A)**. Results are generated with the neutral layout rules; the LLM is never told the user's state; no offers. State is still computed and logged.
-  - **C2, state-aware:** Aura's **Mode: Active (B)**. Layouts follow the fused state, with offers to re-lay out.
+  - **C1, prompt-only:** Set **`Control (A) — Prompt-only`** in **Lab Console (`Ctrl+Shift+L`) → Study**. Results use the neutral (`Standard View`) layout rules; the LLM is never told the user's state; no offers or sensory interventions run. State is still computed and logged silently.
+  - **C2, state-aware:** Set **`Active (B) — State-aware`** in **Lab Console (`Ctrl+Shift+L`) → Study**. Layouts and ambient comfort follow the fused state, with gentle proposals when evidence shifts.
   - **C0, classic links (optional baseline):** use the dev comparison view or plain source lists. C0 isn't a separate switch in the app.
 - **Time pressure** is crossed with condition, following Crescenzi, Kelly & Azzopardi (SIGIR 2015). In pressure blocks the facilitator says: *"You have 3 minutes for this task; please work as fast as you can."* Play an audible timer.
 - **Tasks:** 3 per block, one of each type: explain, compare, how-to. They are recorded in `search_fixtures/`, so every participant sees the same sources whatever words they type. Record additional tasks with:
@@ -41,24 +41,24 @@ here is produced by the current code.
 
 ## 3. Setup (per machine)
 
-1. Run `AuraUI.exe`, or `python run.py` from a checkout.
-2. Put a `secrets.json` beside it with `openrouter_api_key`. Add `tavily_api_key` for live web results; study tasks use recorded sources, so Tavily is optional during sessions.
-3. **Privacy:** enter the participant code and decide with the participant whether to keep the words of their searches (checkbox). Then **Save consent** (consent v4).
-4. **Calibrate** (30 s typing baseline). The search box uses the same baseline.
-5. *(Optional)* Turn the camera on from the search window. This needs `pip install ".[vision]"` and isn't available in the exe. Tell the participant the video never leaves the computer.
-   - Keep the **Explain** panel closed during tasks, and don't use mood simulation (the panel's mood buttons or Aura's **Simulate Stress ▾** menu) while recording: a simulated mood replaces the participant's real signals and changes their layouts. Explain is for the debrief, demos and piloting.
+1. Run `AuraUI.exe`, or `python run.py` from the repository root (`python run.py --lab` starts with the Lab Console visible).
+2. Put a `secrets.json` beside it with `openrouter_api_key`. Add `tavily_api_key` for live web results; study tasks use recorded sources in `search_fixtures/`, so Tavily is optional during sessions.
+3. **Step 1 — Privacy & Consent:** In the Setup wizard (or **Lab → Consent** / **Wellness → Setup & Privacy**), enter the participant code and choose whether search query text may be stored (unchecking keeps only salted hashes). Click **I Consent · Continue** (Consent v4).
+4. **Step 2 — 30-Second Rhythm Calibration:** Complete the interactive typing-passage calibration to capture personal baseline typing speed, dwell time, variability, and error rate.
+5. *(Optional)* Toggle the camera on from the Search header. This needs `pip install ".[vision]"` and isn't included in `AuraUI.exe`. Tell the participant video never leaves the computer.
+   - Because starting a recording automatically enables **Participant Blinded Mode** (`Lab → Study → Lock`), the Lab Console (`XAI`, `Sim & Demo`, `Engine`), mood tags, quick Moods bar, and model/timing debug footers stay hidden from participants during tasks. Keep them locked until the post-study debrief.
 
 ## 4. Session procedure (about 45 minutes)
 
 1. Briefing and consent (5 min).
 2. Calibration (1 min). A practice search on a neutral topic (2 min).
 3. For each block:
-   1. Set **Mode** in Aura (C1 = Control A, C2 = Active B).
-   2. Tick **Record session**. The search window's **Study** panel shows *● recording in Aura*.
-   3. For each of the 3 tasks: **Start** it, then the participant searches in their own words. In C2, they may accept or decline offers, and use **Standard view** if they like. They click **I'm done** and answer the post-task questionnaire (success, SAM, NASA-TLX, personalization, control, trust, optional answer).
-   4. **Usability questionnaire (SUS)** once per block.
-   5. Untick **Record session**. Aura's Journal opens: the participant sets perceived stress and mood (0–10) and **Save entry**. This ends the session file.
-4. Debrief (5 min): which layouts helped or annoyed, and whether offers came at the right time.
+   1. Open **Lab Console (`Ctrl+Shift+L`) → Study** and select the assigned condition (**Control (A) — Prompt-only** or **Active (B) — State-aware**).
+   2. Click **Start Recording**. Recording starts and automatically locks Lab Mode into Participant Blinded Mode; the **Study** panel appears in Search.
+   3. For each of the 3 tasks: click **Start**, then the participant searches in their own words. In C2, they may accept/dismiss/undo layout proposals and switch views (including **Standard View** escape) anytime from the layout-mode menu. Click **I'm done** and submit the post-task questionnaire (success, SAM, NASA-TLX, personalization, control, trust, optional answer).
+   4. Complete the **SUS** questionnaire once per block.
+   5. Open **Lab Console (`Ctrl+Shift+L`)** (unlocking if prompted) and click **Stop Recording**. The **Finish Recorded Session** wrap-up modal opens: the participant sets Perceived Stress and Mood (0–10), optionally writes a note, and clicks **Save & Finalize** to close and hash-chain the session file.
+4. Debrief (5 min): unlock Lab Console to inspect XAI / telemetry if desired, discuss which layouts helped or annoyed, and review timing of offers.
 
 Facilitator rules:
 - Do not mention states or layouts before the debrief.
@@ -67,9 +67,7 @@ Facilitator rules:
 
 ## 5. Data produced
 
-There is one hash-chained `.jsonl` per block in `data/sessions/<pseudonym>/`. Check every file with `research.verify_session(path)` or `research.audit()`.
-
-`research.export_dataset('exports/')` writes:
+There is one hash-chained `.jsonl` per block in `data/sessions/<pseudonym>/`. Verify integrity or export 1-click from **Lab Console (`Ctrl+Shift+L`) → Study → Data Integrity & Export** (**Export CSVs to Folder** / **Download ZIP**), or in Python via `research.audit()` / `research.export_dataset('exports/')`:
 
 | File | One row per | Key columns |
 |---|---|---|
@@ -104,10 +102,10 @@ Use the dev comparison view (`?dev=1`, then **Compare this search across all sta
 
 ## 8. Ethics and data handling
 
-- Consent v4 covers search queries, task answers and questionnaires. Participants can choose hashed queries. Withdrawal (**Privacy → Withdraw**) deletes local sessions and cloud copies.
+- Consent v4 covers search queries, task answers and questionnaires. Participants can choose hashed queries. Withdrawal (**Wellness → Setup & Privacy → Manage data → Withdraw & delete data…**, requiring explicit confirmation) deletes local sessions and cloud copies.
 - Data is pseudonymous (salted code). The salt and `secrets.json` are never exported.
 - Retention: `research.purge_expired(180)`.
 - Before the study, tell participants:
   - the camera is optional;
-  - the app may *offer* a different layout but never changes it without their click;
-  - they can always use **Standard view**.
+  - the app may *offer* a different layout or gentle corner break suggestion, never forcing modal interruptions;
+  - they can always switch back to **Standard View** or toggle **Auto-adapt** off.

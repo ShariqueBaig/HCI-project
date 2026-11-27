@@ -114,8 +114,8 @@ placeholders. If sign-in fails, see *Troubleshooting*.
 ## Step 8 — Send a real session
 
 ```bash
-python run.py                     # Privacy -> participant code -> Save consent
-# tick "Record session", work, then Journal -> Save entry to close the session
+python run.py                     # Setup Step 1 -> participant code -> I Consent · Continue
+# Lab (Ctrl+Shift+L) -> Study -> Start Recording, work, then Stop Recording -> Save & Finalize
 python -m backend.firebase_sync --push
 ```
 

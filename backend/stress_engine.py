@@ -15,6 +15,8 @@ DEFAULT_SETTINGS = {
     'bright_calm': 80, 'bright_mild': 65, 'bright_elev': 50,
     'temp_calm': 6500, 'temp_mild': 5000, 'temp_elev': 3500,
     'baseline_cov': 0.0, 'baseline_err': 0.0,
+    'baseline_kps': 0.0, 'baseline_dwell': 0.0,
+    'screen_diag_px': 2203.0,
 }
 
 
@@ -27,17 +29,25 @@ class StressEngine:
         self.smoothed = 10.0
         self._tier    = 0
 
+    def _get(self, key, default=0.0):
+        try:
+            return self.settings[key]
+        except (KeyError, TypeError):
+            return default
+
     def update(self, features):
         kps = features.get('keys_per_second', 0)
         m_px = features.get('mouse_distance', 0)
-        
-        if kps < 0.2 and m_px < 3000:
+        diag = max(float(self._get('screen_diag_px', 2203.0) or 2203.0), 1000.0)
+        mouse_diags = m_px / diag
+
+        if kps < 0.2 and mouse_diags < 1.36:
             speed = self.settings['decay_speed']
             # Proportional + linear release so Elevated stress recovers in ~3-4s instead of 15.3s
             step = (self.smoothed * 0.14 + 2.2) * speed if self.smoothed > 10 else 0.4 * speed
             self.smoothed = max(0.0, self.smoothed - step)
             return
-            
+
         mf  = features.get('mean_flight', 0)
         sf  = features.get('std_flight',  0)
         err = features.get('error_rate',  0)
@@ -49,14 +59,14 @@ class StressEngine:
         cov_adj = max(0.0, cov - self.settings['baseline_cov'])
         err_adj = max(0.0, err - self.settings['baseline_err'])
 
-        # Long press penalty: dwell times > 150ms indicate heavy/long presses.
-        # Scales up to a 40% raw stress boost at 400ms dwell.
+        # Personalized dwell penalty: use calibrated baseline_dwell when present
         md = features.get('mean_dwell', 0)
-        dwell_penalty = min(max(0.0, md - 0.15) / 0.25, 1.0)
+        b_dwell = float(self._get('baseline_dwell', 0.0) or 0.0)
+        dwell_thresh = max(0.15, b_dwell * 1.45) if b_dwell > 0.03 else 0.15
+        dwell_penalty = min(max(0.0, md - dwell_thresh) / 0.25, 1.0)
 
-        # Mouse jitter penalty: Excessive mouse movement indicates agitation.
-        # Rapid shaking > 10000px in 5s boosts stress heavily.
-        mouse_penalty = min(max(0.0, m_px - 10000) / 6000.0, 1.0)
+        # DPI-normalized mouse agitation: >4.54 screen diagonals in 5s (~10,000 px on 1080p)
+        mouse_penalty = min(max(0.0, mouse_diags - 4.54) / 2.72, 1.0)
 
         cw    = self.settings['cov_weight']
         ew    = self.settings['error_weight']

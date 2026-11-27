@@ -1,0 +1,12 @@
+{
+  "_comment": "Public defaults compiled into the app. Nothing here is secret: the Firebase Web API key identifies the project (access is decided by Firestore rules) and the Spotify Client ID identifies the app (PKCE needs no client secret). Never put an OpenRouter key or a Spotify client secret here.",
+  "firebase": {
+    "project_id": "aura-ui-hci",
+    "api_key": "AIzaSyANlKIV0yOAw-V9yOjcnGUGZOt7pDUEdNI",
+    "collection": "aura_sessions"
+  },
+  "spotify": {
+    "client_id": "06d6789076dd48f08dead4456cccfd40",
+    "redirect_uri": "http://127.0.0.1:8080"
+  }
+}
