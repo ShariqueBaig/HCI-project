@@ -35,8 +35,83 @@ export interface LiveState {
 
 export type HciState = 'focused' | 'overwhelmed' | 'fatigued' | 'energized' | 'disoriented';
 
+// Mirrors backend/search/xai.py explain()
+export interface XaiCondition {
+  label: string;
+  value: number | boolean | null;
+  op: '>=' | '>' | '<' | 'is';
+  threshold: number | boolean;
+  unit: string;
+  met: boolean;
+  progress: number;
+}
+
+export interface XaiClause {
+  name: string;
+  conditions: XaiCondition[];
+  met: boolean;
+  closeness: number;
+}
+
+export interface XaiMood {
+  state: HciState;
+  clauses: XaiClause[];
+  matched: boolean;
+  closeness: number;
+  chosen: boolean;
+  priority: number;
+}
+
+export interface Xai {
+  model: string;
+  priority: HciState[];
+  moods: XaiMood[];
+  stress_fusion: {
+    parts: { source: string; value: number; weight: number; share: number }[];
+    fused: number | null;
+    formula: string;
+  };
+}
+
+// Mirrors backend/vision/sensor.py explain_detail() + GET /api/camera/explain
+export interface CameraDetail {
+  ts: number;
+  frame_jpeg_b64: string | null;
+  face: boolean;
+  face_count: number;
+  raw_emotions: Record<string, number>;
+  emotions: Record<string, number>;
+  dominant: string | null;
+  detector_confidence: number;
+  valence: number;
+  arousal: number;
+  attention: number;
+  head_pitch: number;
+  volatility: number;
+  cognitive_load: number;
+  load_parts: { label: string; value: number; weight: number; contribution: number }[];
+  camera_state: HciState | null;
+  camera_candidate: HciState | null;
+  camera_state_confidence: number;
+  anchors: Record<string, [number, number]>;
+  latency_ms: number | null;
+}
+
+export interface CameraExplain {
+  active: boolean;
+  detail: CameraDetail | null;
+  used_by_fusion: boolean;
+}
+
+export interface Simulation {
+  state: HciState;
+  remaining_s: number;
+  inputs: Record<string, unknown>;
+}
+
 // Mirrors backend/search/state_fusion.py fuse() + StateTracker
 export interface FusedState {
+  xai?: Xai;
   state: HciState;
   confidence: number;
   stress: number | null;
@@ -105,6 +180,7 @@ export interface StateSnapshot {
   typing: { fresh: boolean; age_s: number | null; score: number; features: LiveFeatures };
   behaviour: { rage_clicks: number; hesitations: number; backtracks: number; reformulations: number };
   query_trail: string[];
+  simulation?: Simulation | null;
 }
 
 export interface StatePayload {

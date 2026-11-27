@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Brain, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost, TOKEN } from './api';
 import { ResultsView } from './components/ResultsView';
@@ -7,10 +7,11 @@ import { CameraToggle } from './components/CameraToggle';
 import { StatePill } from './components/StatePill';
 import { StressChip } from './components/StressChip';
 import { StudyPanel } from './components/study/StudyPanel';
+import { XaiPanel } from './components/XaiPanel';
 import { useBehaviourSignals } from './hooks/useBehaviourSignals';
 import { useTypingDynamics } from './hooks/useTypingDynamics';
 import { useAuraState } from './hooks/useAuraState';
-import type { FixtureInfo, LiveState, SearchResponse, StateSnapshot } from './types';
+import type { FixtureInfo, LiveState, RerenderResponse, SearchResponse, StateSnapshot } from './types';
 
 export default function App() {
   const { live, snap, status } = useAuraState();
@@ -21,12 +22,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fixtures, setFixtures] = useState<FixtureInfo[]>([]);
+  const [showXai, setShowXai] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const reqId = useRef(0);
 
   useTypingDynamics(inputRef, status !== 'unauthorized');
   useBehaviourSignals(status !== 'unauthorized');
   usePolicyTokens(snap);
+  useSimulatedRelayout(snap, result, setResult);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -68,6 +71,23 @@ export default function App() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {status !== 'unauthorized' && <CameraToggle face={snap?.camera?.face} />}
+          {status !== 'unauthorized' && (
+            <button
+              type="button"
+              onClick={() => setShowXai((v) => !v)}
+              aria-pressed={showXai}
+              aria-controls="xai-panel"
+              title="Show how the model reads your mood, step by step"
+              className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm hover:border-[var(--aura-calm)]"
+              style={{
+                borderColor: showXai ? 'var(--aura-calm)' : 'var(--aura-border)',
+                background: 'var(--aura-surface)',
+                color: showXai ? 'var(--aura-calm)' : undefined,
+              }}
+            >
+              <Brain size={14} aria-hidden /> Explain{snap?.simulation ? ' · sim' : ''}
+            </button>
+          )}
           <StatePill snap={snap} />
           <StressChip live={live} status={status} />
         </div>
@@ -109,6 +129,8 @@ export default function App() {
             {loading ? 'Searching…' : 'Search'}
           </button>
         </form>
+
+        {status !== 'unauthorized' && showXai && <XaiPanel snap={snap} onClose={() => setShowXai(false)} />}
 
         <StudyPanel
           recording={Boolean(live?.recording)}
@@ -154,6 +176,28 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+/** While a mood is simulated, re-lay out the results on screen for the mood the
+ *  model commits to (same facts, Stage B only), so the effect is visible at once. */
+function useSimulatedRelayout(
+  snap: StateSnapshot | null,
+  result: SearchResponse | null,
+  setResult: (r: SearchResponse) => void,
+) {
+  const simState = snap?.simulation?.state;
+  const committed = snap?.fused.committed_state;
+  const asked = useRef('');
+  useEffect(() => {
+    if (!simState || !committed || !result || !result.adaptive || committed !== simState) return;
+    if (result.policy.name === committed) return;
+    const key = `${result.search_id}:${committed}`;
+    if (asked.current === key) return;
+    asked.current = key;
+    apiPost<RerenderResponse>(`/api/search/${result.search_id}/rerender`, { policy: committed })
+      .then((r) => setResult({ ...result, policy: r.policy, spec: r.spec }))
+      .catch(() => undefined);
+  }, [simState, committed, result, setResult]);
 }
 
 /** Apply the active policy's Fitts's-law / readability tokens as CSS variables. */

@@ -94,13 +94,13 @@ def fuse(live, typing=None, behaviour=None, affect=None):
 
     stress_parts = []
     if live:
-        stress_parts.append((float(live.get('score') or 0.0), AURA_WEIGHT))
+        stress_parts.append((float(live.get('score') or 0.0), AURA_WEIGHT, 'aura'))
         contributions['aura_stress'] = round(float(live.get('score') or 0.0), 1)
         sources.append('aura')
     typing_fresh = bool(typing and typing.get('fresh'))
     tf = (typing or {}).get('features') or {}
     if typing_fresh:
-        stress_parts.append((float(typing.get('score') or 0.0), TYPING_WEIGHT))
+        stress_parts.append((float(typing.get('score') or 0.0), TYPING_WEIGHT, 'query_typing'))
         contributions['query_typing_stress'] = round(float(typing.get('score') or 0.0), 1)
         sources.append('query_typing')
     # Optional camera (Phase 6): only a detected face with a fresh reading counts.
@@ -111,7 +111,7 @@ def fuse(live, typing=None, behaviour=None, affect=None):
         val, aro, load = cam['valence'], cam['arousal'], cam['cognitive_load']
         contributions['camera_valence'] = round(val, 2)
         contributions['camera_arousal'] = round(aro, 2)
-    stress = (sum(s * w for s, w in stress_parts) / sum(w for _, w in stress_parts)) if stress_parts else None
+    stress = (sum(s * w for s, w, _ in stress_parts) / sum(w for _, w, _ in stress_parts)) if stress_parts else None
     if stress is None and cam:
         # camera only (no Aura state yet): map arousal/load onto the stress scale
         stress = max(0.0, min(100.0, 50 * (aro + 1) * 0.5 + 50 * load))
@@ -184,7 +184,12 @@ def fuse(live, typing=None, behaviour=None, affect=None):
     if (live or {}).get('breathing_active'):
         evidence.append("Aura's breathing guide is open; Search will stay quiet.")
 
+    from backend.search.xai import explain
+    xai = explain(state=state, stress=stress, tier=tier, blocking=blocking, friction=friction, hes=hes,
+                  refs=refs, typing_fresh=typing_fresh, kps=kps, dwell=dwell, err=err, cam=cam,
+                  val=val, aro=aro, load=load, parts=stress_parts)
     return {
+        'xai': xai,
         'state': state,
         'confidence': round(max(0.0, min(0.95, conf)), 2),
         'stress': round(stress, 1) if stress is not None else None,
@@ -208,6 +213,11 @@ class StateTracker:
         self.flickers_prevented = 0
         self.transitions = 0
         self.latest = None
+
+    def expedite(self):
+        """Skip the cooldown once (a mood simulation just started); dwell still applies."""
+        with self._lock:
+            self._last_commit = float('-inf')
 
     def update(self, vector, now=None):
         now = now if now is not None else time.time()

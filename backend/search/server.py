@@ -18,6 +18,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
@@ -81,6 +82,11 @@ class ViewChoice(BaseModel):
 class ProposalAction(BaseModel):
     proposal_id: str = Field(default='', max_length=40)
     action: str = Field(pattern='^(accept|dismiss|undo)$')
+
+
+class MoodSimulation(BaseModel):
+    state: Optional[str] = Field(default=None, pattern='^(focused|overwhelmed|fatigued|energized|disoriented)$')
+    duration_s: float = Field(default=45.0, ge=5, le=300)
 
 
 class CameraToggle(BaseModel):
@@ -305,6 +311,15 @@ def create_app(store, token, ui_dist=None, chain=None, stage_a=None, hub=None, c
         spec = _compose(rec, policy, summary)
         return {'search_id': search_id, 'action': body.action, 'policy': policy, 'spec': spec}
 
+    # ------------------------------------------------------- simulation --
+    @app.post('/api/simulate')
+    def simulate(body: MoodSimulation):
+        """Drive the fusion model with a mood's synthetic signals (None stops it)."""
+        st = hub.simulate(body.state, body.duration_s)
+        research.record_event('mood_sim_start' if body.state else 'mood_sim_stop', None,
+                              target=body.state)
+        return {'simulation': st}
+
     # ----------------------------------------------------------- camera --
     @app.get('/api/camera')
     def camera_status():
@@ -314,6 +329,17 @@ def create_app(store, token, ui_dist=None, chain=None, stage_a=None, hub=None, c
             return {'available': ok, 'active': False, 'loading': False, 'error': None if ok else why,
                     'latest': None}
         return hub.camera.status()
+
+    @app.get('/api/camera/explain')
+    def camera_explain():
+        """The camera's view and reasoning, for the user's own explain panel only.
+        Polling this is what keeps the preview frame being encoded."""
+        if hub.camera is None or not hub.camera.active:
+            return {'active': False, 'detail': None, 'used_by_fusion': False}
+        from backend.search.state_fusion import CAMERA_FRESH_S
+        lat = hub.camera.latest() or {}
+        used = bool(lat.get('face')) and time.time() - lat.get('ts', 0) <= CAMERA_FRESH_S             and not (hub.current() or {}).get('simulation')
+        return {'active': True, 'detail': hub.camera.explain(), 'used_by_fusion': used}
 
     @app.post('/api/camera')
     def camera_toggle(body: CameraToggle):
@@ -452,8 +478,26 @@ class SearchServer:
         return bool(self._thread and self._thread.is_alive() and self._server
                     and self._server.started)
 
+    @staticmethod
+    def _port_free(port):
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind((HOST, port))
+                return True
+            except OSError:
+                return False
+
     def start(self):
         import uvicorn
+        # another Aura (or anything) on the port: use the next free one rather than
+        # leaving Search dead. The window URL always carries the real port.
+        for p in range(self.port, self.port + 10):
+            if p != 8080 and self._port_free(p):
+                if p != self.port:
+                    print('[Aura Search] port {} is busy (is another Aura open?); using {}'.format(self.port, p))
+                self.port = p
+                break
         from backend.search.research_bridge import ResearchBridge
         app = create_app(self.store, self.token, self.ui_dist,
                          research=ResearchBridge(self.get_collector))

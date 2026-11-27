@@ -286,10 +286,12 @@ class SessionStats:
 _toasts = []   # live toast windows, for stacking
 
 def show_toast(root, title, text, kind='delivered', ms=3800):
-    """Small always-on-top card, bottom-right. kind: delivered | blocked | digest."""
+    """Small always-on-top card, bottom-right. kind: delivered | blocked | digest | notice | error."""
     accent, tag = {'delivered': (CALM, 'Delivered'),
                    'blocked':   (ELEV, 'Held back by Focus mode'),
-                   'digest':    (MILD, 'Focus summary')}[kind]
+                   'digest':    (MILD, 'Focus summary'),
+                   'notice':    (MILD, 'Simulation'),
+                   'error':     (ELEV, 'Problem')}[kind]
     win = tk.Toplevel(root)
     win.overrideredirect(True)
     win.attributes('-topmost', True)
@@ -505,8 +507,8 @@ class AmbientApp:
 
         btn_row = tk.Frame(self._left, bg=BG)
         btn_row.pack(fill='x', padx=20, pady=(0, 4))
-        self.sim_btn = tk.Button(btn_row, text='Simulate Stress',
-                                  command=self._simulate,
+        self.sim_btn = tk.Button(btn_row, text='Simulate Stress ▾',
+                                  command=self._simulate_menu,
                                   bg=SURF, fg=MILD, relief='flat',
                                   font=('Arial', 9), activebackground=BORDER,
                                   activeforeground=ELEV, cursor='hand2', pady=4)
@@ -1436,12 +1438,56 @@ class AmbientApp:
     def _on_topmost(self, *_):
         self.root.attributes('-topmost', self.always_top.get())
 
+    SIM_MOODS = (('focused', 'Focused'), ('overwhelmed', 'Overwhelmed'), ('fatigued', 'Fatigued'),
+                 ('energized', 'Energized'), ('disoriented', 'Disoriented'))
+
+    def _simulate_menu(self):
+        """Simulate Stress: the classic 10 s stress spike, or a mood for Aura Search's model."""
+        m = tk.Menu(self.root, tearoff=0, bg=SURF, fg=TEXT, activebackground=BORDER,
+                    activeforeground=TEXT, font=('Arial', 9))
+        m.add_command(label='Stress spike (Elevated, 10 s)', command=self._simulate,
+                      state='normal' if self._sim_ticks == 0 else 'disabled')
+        m.add_separator()
+        hub = getattr(self.search_server, 'hub', None)
+        cur = hub.simulation_status() if hub else None
+        for key, label in self.SIM_MOODS:
+            mark = '✓ ' if cur and cur['state'] == key else '    '
+            m.add_command(label=mark + 'Mood: ' + label + ' (45 s, Aura Search)',
+                          command=lambda k=key: self._simulate_mood(k),
+                          state='normal' if hub else 'disabled')
+        m.add_command(label='Stop mood simulation', command=lambda: self._simulate_mood(None),
+                      state='normal' if cur else 'disabled')
+        x, y = self.sim_btn.winfo_rootx(), self.sim_btn.winfo_rooty() + self.sim_btn.winfo_height()
+        try:
+            m.tk_popup(x, y)
+        finally:
+            m.grab_release()
+
+    def _simulate_mood(self, mood):
+        """Drive Aura Search's state model with a mood's synthetic signals (None stops)."""
+        hub = getattr(self.search_server, 'hub', None)
+        if hub is None:
+            show_toast(self.root, 'Aura Search', 'Search is not running, so moods cannot be simulated.',
+                       kind='notice')
+            return
+        try:
+            hub.simulate(mood, 45)
+        except Exception as e:
+            print('[Aura UI] mood simulation failed:', e)
+            return
+        if mood == 'overwhelmed' and self._sim_ticks == 0:
+            self._simulate()                    # Aura's own interventions react too
+        label = dict(self.SIM_MOODS).get(mood)
+        show_toast(self.root, 'Aura Search',
+                   'Simulating {} for 45 s. Open Search to see how the model reads it.'.format(label)
+                   if mood else 'Mood simulation stopped.', kind='notice')
+
     def _simulate(self):
         self._sim_ticks = 30
         self._elevated_since = None
         self._last_checkin = 0.0
         self._last_popup_time = 0.0
-        self.sim_btn.config(state='disabled', text='Simulating...')
+        self.sim_btn.config(text='Simulating... ▾')   # stays clickable: the menu has moods too
 
     # ------- poll loop (runs on main thread via after) -----------------------
 
@@ -1484,7 +1530,7 @@ class AmbientApp:
         srv = self.search_server
         if srv is None or not srv.wait_started(timeout=2.0):
             err = (srv.error if srv else None) or 'server not running'
-            show_toast(self.root, 'Aura Search', 'Search is unavailable: ' + err[:80], kind='blocked')
+            show_toast(self.root, 'Aura Search', 'Search is unavailable: ' + err[:80], kind='error')
             return
         how = open_search_window(srv.url)
         print('[Aura UI] search window opened via', how)
@@ -1676,7 +1722,7 @@ class AmbientApp:
             self.engine.inject_stress(82)
             self._sim_ticks -= 1
             if self._sim_ticks == 0:
-                self.sim_btn.config(state='normal', text='Simulate Stress')
+                self.sim_btn.config(state='normal', text='Simulate Stress ▾')
         else:
             self.engine.update(features)
 

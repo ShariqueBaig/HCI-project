@@ -43,6 +43,9 @@ class VisionEngine:
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         )
         self._latest_result: dict[str, Any] = self._empty_result(camera_active=False)
+        # Annotated JPEG preview, encoded only while the user has Search's explain
+        # panel open. It stays in memory (latest frame only) and is never written.
+        self.preview: bool = False
 
     @staticmethod
     def _empty_result(camera_active: bool = False, error: str | None = None) -> dict[str, Any]:
@@ -135,7 +138,8 @@ class VisionEngine:
                     continue
 
                 frame = cv2.flip(frame, 1)
-                result = self.analyze_frame(frame, include_jpeg=False)   # frames never leave this process
+                # frames leave this process only as the on-demand preview (127.0.0.1 + token)
+                result = self.analyze_frame(frame, include_jpeg=self.preview)
                 result["camera_active"] = True
                 result["camera_error"] = None
                 with self._lock:
